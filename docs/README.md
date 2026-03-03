@@ -1,39 +1,44 @@
-# 딥페이크 탐지 모델 Fine-tuning 실습
+# 딥페이크 탐지 모델 Fine-tuning Workshop
 
-## 개요
+## Workshop 소개
 
-글로벌 딥페이크 탐지 모델을 **한국인 얼굴에 특화**되도록 Fine-tuning하는 실습입니다.
+글로벌 딥페이크 탐지 모델(FaceForensics++)을 **한국인 얼굴에 특화**되도록 Fine-tuning하는 실습입니다.
 
-Amazon SageMaker를 활용하여 FaceForensics++ 기반의 사전 학습 모델을 KoDF(Korean DeepFake) 데이터셋으로 파인튜닝하고, 성능 향상을 직접 확인합니다.
+## 핵심 목표
 
-## 학습 목표
+| 구분 | Before | After |
+|------|--------|-------|
+| 모델 | FaceForensics++ Pretrained | Fine-tuned |
+| 학습 데이터 | 서양인 얼굴 위주 | + 한국인 얼굴 |
+| 한국인 탐지 정확도 | ~70% | **~90%+** |
 
-이 실습을 통해 다음을 배웁니다:
+## 실습 흐름
 
-- SageMaker Training Job을 활용한 딥러닝 모델 파인튜닝
-- **SageMaker Experiments로 실험 추적**
-- **Model Registry로 모델 버전 관리**
-- **Spot Instance로 비용 절감 (~70%)**
-- 모델 성능 평가 및 비교 분석
-- SageMaker Endpoint를 통한 모델 배포
-- Gradio를 활용한 데모 UI 구축
+```
+Step 1: 데이터 준비
+    ↓
+Step 2: Before 평가 (Fine-tuning 전)
+    ↓
+Step 3: SageMaker Fine-tuning
+    ↓
+Step 4: After 평가 (Fine-tuning 후)
+    ↓
+Step 5: Before vs After 비교
+    ↓
+Step 6: Gradio 데모 배포
+```
+
+## 실습 방법
+
+> **모든 노트북은 셀을 순서대로 실행하면 됩니다. (`Shift + Enter`)**
 
 ## 주요 기능
 
 | 기능 | 설명 |
 |------|------|
 | **SageMaker Experiments** | 하이퍼파라미터, 메트릭 자동 추적 |
-| **Model Registry** | 모델 버전 관리, 승인 워크플로우 |
+| **Model Registry** | 모델 버전 관리 (85%+ 시 등록) |
 | **Spot Instance** | 학습 비용 ~70% 절감 |
-| **조건부 등록** | 정확도 85% 이상 시 Registry 등록 |
-
-## Before vs After
-
-| 구분 | Before | After |
-|------|--------|-------|
-| 모델 | FaceForensics++ Pretrained | KoDF Fine-tuned |
-| 학습 데이터 | 서양인 얼굴 위주 | 한국인 얼굴 추가 |
-| 한국인 영상 정확도 | ~70% | ~90%+ |
 
 ## 아키텍처
 
@@ -42,7 +47,7 @@ Amazon SageMaker를 활용하여 FaceForensics++ 기반의 사전 학습 모델�
 │                      실습 전체 흐름                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  [KoDF 샘플 데이터]                                          │
+│  [Workshop 데이터]                                           │
 │         │                                                   │
 │         ▼                                                   │
 │  ┌─────────────┐                                            │
@@ -58,37 +63,42 @@ Amazon SageMaker를 활용하여 FaceForensics++ 기반의 사전 학습 모델�
 │    │     Fine-tuned 모델                                    │
 │    │          │                                             │
 │    │          ▼                                             │
-│    │     [Model Registry]  ← 85%+ 시 등록                   │
+│    │     [Model Registry]  ← 85%+ 시 자동 등록              │
 │    │          │                                             │
 │    └────┬─────┘                                             │
 │         ▼                                                   │
 │  ┌─────────────────┐                                        │
-│  │  성능 비교 평가   │                                       │
+│  │  성능 비교 평가   │  Before vs After                      │
 │  └────────┬────────┘                                        │
 │           ▼                                                 │
 │  ┌─────────────────┐                                        │
-│  │  SageMaker      │                                        │
-│  │  Endpoint 배포   │                                        │
-│  └────────┬────────┘                                        │
-│           ▼                                                 │
-│  ┌─────────────────┐                                        │
-│  │  Gradio 데모 UI  │                                        │
+│  │  Gradio 데모 UI  │  실시간 딥페이크 탐지                   │
 │  └─────────────────┘                                        │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 대상
+## 예상 소요 시간
 
-- AWS 서비스에 관심 있는 ML/AI 개발자
-- 딥페이크 탐지 기술을 배우고 싶은 분
-- SageMaker 활용법을 실습으로 익히고 싶은 분
+| 단계 | 내용 | 시간 |
+|------|------|------|
+| 1 | 데이터 준비 | 15분 |
+| 2 | Before 평가 | 10분 |
+| 3 | Fine-tuning | 25분 |
+| 4 | After 평가 | 10분 |
+| 5 | 성능 비교 | 5분 |
+| 6 | 데모 배포 | 15분 |
+| **총합** | | **~1.5시간** |
 
 ## 예상 비용
 
-| 리소스 | 인스턴스 | On-Demand | Spot (~70% 절감) |
-|--------|----------|-----------|------------------|
-| Training | ml.g4dn.xlarge | ~$0.74 | ~$0.22 |
-| Endpoint | ml.g4dn.xlarge | ~$1.47 | - |
-| S3 | - | ~$0.02 | ~$0.02 |
-| **총합** | | **~$2.23** | **~$1.71** |
+| 리소스 | 인스턴스 | Spot 사용 시 |
+|--------|----------|-------------|
+| Training | ml.g4dn.xlarge | ~$0.22 |
+| Endpoint | ml.g4dn.xlarge | ~$0.74/hr |
+| S3 | - | ~$0.02 |
+| **총합** | | **~$1.7** |
+
+## 시작하기
+
+👉 [사전 준비](getting-started/prerequisites.md)를 확인하세요.
