@@ -9,8 +9,9 @@ Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning�
 ## 학습 내용
 
 - SageMaker Training Job 구성
+- **SageMaker Experiments로 실험 추적**
+- **Spot Instance로 비용 절감**
 - PyTorch Estimator 사용법
-- 하이퍼파라미터 설정
 - 학습 모니터링
 
 ## SageMaker Training Job
@@ -18,30 +19,44 @@ Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning�
 ### 아키텍처
 
 ```
-┌─────────────────────────────────────────────────┐
-│              SageMaker Training                  │
-├─────────────────────────────────────────────────┤
-│                                                 │
-│  ┌─────────┐    ┌─────────┐    ┌─────────┐    │
-│  │   S3    │───▶│ Training │───▶│   S3    │    │
-│  │  Input  │    │Container │    │  Output │    │
-│  └─────────┘    └─────────┘    └─────────┘    │
-│                      │                         │
-│                      ▼                         │
-│              ┌─────────────┐                   │
-│              │ CloudWatch  │                   │
-│              │    Logs     │                   │
-│              └─────────────┘                   │
-│                                                 │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              SageMaker Training + Experiments            │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────┐    ┌─────────┐    ┌─────────┐            │
+│  │   S3    │───▶│ Training │───▶│   S3    │            │
+│  │  Input  │    │Container │    │  Output │            │
+│  └─────────┘    └─────────┘    └─────────┘            │
+│                      │                                  │
+│         ┌───────────┼───────────┐                      │
+│         ▼           ▼           ▼                      │
+│  ┌───────────┐ ┌─────────┐ ┌─────────────┐            │
+│  │Experiments│ │CloudWatch│ │   Model     │            │
+│  │  (추적)   │ │  Logs    │ │  Registry   │            │
+│  └───────────┘ └─────────┘ └─────────────┘            │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## 주요 코드
 
-### Estimator 설정
+### SageMaker Experiments 설정
+
+```python
+from sagemaker.experiments.run import Run
+from datetime import datetime
+
+EXPERIMENT_NAME = "deepfake-detection-kodf"
+RUN_NAME = f"finetuning-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+```
+
+### Estimator 설정 (Spot Instance 포함)
 
 ```python
 from sagemaker.pytorch import PyTorch
+
+# Spot Instance 사용 여부 (비용 ~70% 절감)
+USE_SPOT = True
 
 estimator = PyTorch(
     entry_point='train.py',
@@ -52,77 +67,78 @@ estimator = PyTorch(
     framework_version='2.0.0',
     py_version='py310',
     hyperparameters={
-        'epochs': 10,
+        'epochs': 5,
         'batch-size': 32,
         'learning-rate': 0.0001,
-        'weight-decay': 0.01
-    }
+        'model-name': 'efficientnet_b0'
+    },
+    # Spot Instance 설정
+    use_spot_instances=USE_SPOT,
+    max_wait=7200 if USE_SPOT else None,
+    max_run=3600,
 )
 ```
 
-### 학습 실행
+### Experiments와 함께 학습 실행
 
 ```python
-# 학습 시작
-estimator.fit({
-    'train': train_s3_path,
-    'validation': val_s3_path
-})
+with Run(
+    experiment_name=EXPERIMENT_NAME,
+    run_name=RUN_NAME,
+    sagemaker_session=sagemaker_session
+) as run:
+    # 하이퍼파라미터 로깅
+    run.log_parameters(hyperparameters)
+    run.log_parameter("instance_type", "ml.g4dn.xlarge")
+    run.log_parameter("use_spot", USE_SPOT)
+
+    # Training 실행
+    estimator.fit(data_channels, wait=True, logs='All')
+
+    # 모델 경로 로깅
+    run.log_parameter("model_data", estimator.model_data)
 ```
 
-### 학습 스크립트 (train.py)
+## Spot Instance
 
-```python
-import argparse
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
+### 비용 비교
 
-def train(args):
-    # 모델 초기화
-    model = create_model()
-    model.load_state_dict(torch.load('ff_pretrained.pth'))
+| 모드 | 시간당 비용 | 절감율 |
+|------|-------------|--------|
+| On-Demand | $0.736 | - |
+| Spot | ~$0.22 | ~70% |
 
-    # 마지막 레이어만 학습
-    for param in model.parameters():
-        param.requires_grad = False
-    model.classifier.requires_grad = True
+### 주의사항
 
-    optimizer = torch.optim.AdamW(
-        model.classifier.parameters(),
-        lr=args.learning_rate,
-        weight_decay=args.weight_decay
-    )
+- Spot Instance는 중단될 수 있음
+- `max_wait`: 최대 대기 시간 설정
+- 체크포인트 설정 권장 (긴 학습 시)
 
-    criterion = nn.CrossEntropyLoss()
+## SageMaker Experiments
 
-    for epoch in range(args.epochs):
-        model.train()
-        for batch in train_loader:
-            images, labels = batch
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+### 장점
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+- 실험 이력 자동 기록
+- 하이퍼파라미터 비교
+- Before/After 성능 추적
+- SageMaker Studio에서 시각화
 
-        # Validation
-        val_acc = evaluate(model, val_loader)
-        print(f"Epoch {epoch+1}: Val Acc = {val_acc:.2%}")
+### 기록되는 정보
 
-    # 모델 저장
-    torch.save(model.state_dict(), '/opt/ml/model/model.pth')
-```
+| 항목 | 설명 |
+|------|------|
+| Parameters | 하이퍼파라미터, 인스턴스 타입 등 |
+| Metrics | Loss, Accuracy 등 |
+| Artifacts | 모델 경로, 데이터 경로 |
 
 ## 하이퍼파라미터
 
 | 파라미터 | 값 | 설명 |
 |----------|-----|------|
-| epochs | 10 | 전체 데이터 반복 횟수 |
+| epochs | 5 | 전체 데이터 반복 횟수 |
 | batch-size | 32 | 배치 크기 |
 | learning-rate | 0.0001 | 학습률 |
-| weight-decay | 0.01 | L2 정규화 |
+| model-name | efficientnet_b0 | 백본 모델 |
 
 ## Fine-tuning 전략
 
@@ -130,19 +146,14 @@ def train(args):
 2. **작은 Learning Rate**: 사전 학습 가중치 보존
 3. **Early Stopping**: Validation Loss 기반
 
-## 학습 모니터링
-
-SageMaker 콘솔 또는 CloudWatch에서 실시간 모니터링:
-- Training Loss
-- Validation Loss
-- Validation Accuracy
-
 ## 체크포인트
 
+- [ ] Experiments 이름 설정
+- [ ] Spot Instance 옵션 확인
 - [ ] Estimator 설정 완료
 - [ ] Training Job 실행
 - [ ] 학습 완료 확인
-- [ ] 모델 아티팩트 S3 저장 확인
+- [ ] Experiments에서 결과 확인
 
 ## 다음 단계
 

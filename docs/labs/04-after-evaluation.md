@@ -4,13 +4,49 @@
 
 ## 개요
 
-Fine-tuning 후 모델의 한국인 얼굴 탐지 성능을 평가합니다.
+Fine-tuning 후 모델의 한국인 얼굴 탐지 성능을 평가하고 **Model Registry에 등록**합니다.
 
 ## 학습 내용
 
 - Fine-tuned 모델 로드
 - 동일 테스트셋으로 평가
 - 성능 개선 확인
+- **SageMaker Model Registry 등록**
+
+## Model Registry란?
+
+모델의 버전을 관리하고, 승인 프로세스를 거쳐 배포하는 중앙 저장소입니다.
+
+### 장점
+
+- 모델 버전 관리
+- 메타데이터 저장 (정확도, 학습일 등)
+- 승인 워크플로우 (PendingManualApproval → Approved)
+- 배포 이력 추적
+
+### 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  Model Registry Flow                     │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────┐    ┌─────────────┐    ┌─────────────┐    │
+│  │Fine-tune│───▶│  평가       │───▶│  Registry   │    │
+│  │ Model   │    │ (85%+ ?)   │    │  등록       │    │
+│  └─────────┘    └─────────────┘    └─────────────┘    │
+│                       │                    │            │
+│                       │ No                 ▼            │
+│                       ▼            ┌─────────────┐     │
+│                    건너뜀          │  승인 대기   │     │
+│                                    └──────┬──────┘     │
+│                                           ▼            │
+│                                    ┌─────────────┐     │
+│                                    │   배포      │     │
+│                                    └─────────────┘     │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
 
 ## 주요 코드
 
@@ -42,44 +78,60 @@ from sklearn.metrics import (
 )
 
 # 테스트 데이터로 추론
-predictions = []
-probabilities = []
+after_results = evaluate_model(model_after, test_loader, device)
 
-for img_path in test_images:
-    prob = predict(img_path)
-    probabilities.append(prob)
-    predictions.append(1 if prob > 0.5 else 0)
-
-# 메트릭 계산
-metrics = {
-    'accuracy': accuracy_score(test_labels, predictions),
-    'auc': roc_auc_score(test_labels, probabilities),
-    'precision': precision_score(test_labels, predictions),
-    'recall': recall_score(test_labels, predictions),
-    'f1': f1_score(test_labels, predictions)
-}
-
-print("After Fine-tuning")
-for name, value in metrics.items():
-    print(f"{name}: {value:.4f}")
+print(f"Accuracy:  {after_results['accuracy']*100:.1f}%")
+print(f"Precision: {after_results['precision']*100:.1f}%")
+print(f"Recall:    {after_results['recall']*100:.1f}%")
+print(f"F1 Score:  {after_results['f1_score']*100:.1f}%")
 ```
 
-### Confusion Matrix
+### Model Package Group 생성
 
 ```python
-import seaborn as sns
-import matplotlib.pyplot as plt
+MODEL_PACKAGE_GROUP = "deepfake-detection-kodf"
+ACCURACY_THRESHOLD = 0.85
 
-cm = confusion_matrix(test_labels, predictions)
+sm_client = boto3.client('sagemaker')
 
-plt.figure(figsize=(8, 6))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-            xticklabels=['Real', 'Fake'],
-            yticklabels=['Real', 'Fake'])
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix (After Fine-tuning)')
-plt.show()
+# Model Package Group 생성 (처음 한 번만)
+sm_client.create_model_package_group(
+    ModelPackageGroupName=MODEL_PACKAGE_GROUP,
+    ModelPackageGroupDescription="한국인 딥페이크 탐지 모델"
+)
+```
+
+### 조건부 Model Registry 등록
+
+```python
+if after_results['accuracy'] >= ACCURACY_THRESHOLD:
+    print(f"✅ 정확도 {after_results['accuracy']*100:.1f}% >= 85% 기준 충족!")
+
+    # PyTorch 모델 정의
+    pytorch_model = PyTorchModel(
+        model_data=config['model_data'],
+        role=config['role'],
+        framework_version='2.0.0',
+        py_version='py310',
+        entry_point='inference.py',
+        source_dir='../6_demo'
+    )
+
+    # Model Registry 등록
+    model_package = pytorch_model.register(
+        model_package_group_name=MODEL_PACKAGE_GROUP,
+        inference_instances=['ml.g4dn.xlarge', 'ml.m5.large'],
+        transform_instances=['ml.m5.large'],
+        content_types=['application/json'],
+        response_types=['application/json'],
+        approval_status='PendingManualApproval',
+        description=f"KoDF Fine-tuned (Accuracy: {after_results['accuracy']*100:.1f}%)"
+    )
+
+    print(f"✅ Model Package ARN: {model_package.model_package_arn}")
+
+else:
+    print(f"❌ 정확도 미달 - Registry 등록 건너뜀")
 ```
 
 ## 예상 결과
@@ -93,17 +145,24 @@ Fine-tuning 후 한국인 얼굴 데이터 성능:
 | Precision | ~0.68 | ~0.91 | +0.23 |
 | Recall | ~0.72 | ~0.89 | +0.17 |
 
-## 분석 포인트
+## Model Registry 상태
 
-### 성능 개선 이유
-1. 한국인 얼굴 특징 학습
-2. 도메인 특화 미세 조정
-3. 데이터 분포 매칭
+| 상태 | 설명 |
+|------|------|
+| `PendingManualApproval` | 등록 직후, 승인 대기 |
+| `Approved` | 승인 완료, 배포 가능 |
+| `Rejected` | 거부됨 |
 
-### 여전히 어려운 케이스
-- 고품질 딥페이크
-- 저해상도 이미지
-- 극단적 조명 조건
+### 모델 승인하기
+
+```python
+sm_client.update_model_package(
+    ModelPackageArn=model_package_arn,
+    ModelApprovalStatus='Approved'
+)
+```
+
+또는 SageMaker Console에서 수동 승인 가능합니다.
 
 ## 체크포인트
 
@@ -111,6 +170,7 @@ Fine-tuning 후 한국인 얼굴 데이터 성능:
 - [ ] 테스트 데이터 추론 완료
 - [ ] 성능 메트릭 기록 완료
 - [ ] Before 대비 개선 확인
+- [ ] **Model Registry 등록 완료**
 
 ## 다음 단계
 
