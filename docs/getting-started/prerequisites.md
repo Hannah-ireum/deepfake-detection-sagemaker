@@ -11,6 +11,15 @@
 | **노트북/PC** | 인터넷 연결 가능 |
 | **웹 브라우저** | Chrome 권장 |
 | **Workshop URL** | 강사가 제공 |
+| **Kaggle 계정** | 데이터 다운로드용 (무료) |
+
+### Kaggle API 설정 (Workshop 전 준비)
+
+1. [Kaggle](https://www.kaggle.com) 회원가입
+2. 로그인 후 우측 상단 프로필 아이콘 클릭
+3. **Settings** 클릭
+4. **API** 섹션에서 **Create New Token** 클릭
+5. `kaggle.json` 파일이 다운로드됨 (Workshop에서 사용)
 
 ### 제공되는 것
 

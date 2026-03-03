@@ -9,28 +9,39 @@
 ## 학습 내용
 
 - 딥페이크 탐지용 데이터셋 구조 이해
-- 사전 준비된 데이터 다운로드
+- Kaggle에서 데이터 다운로드
 - S3 버킷에 데이터 업로드
 - config.json 생성
 
 ## 데이터 소스
 
-강사가 미리 준비한 딥페이크 샘플 데이터를 S3에서 다운로드합니다.
+**140k Real and Fake Faces** (Kaggle) 데이터셋을 사용합니다.
+
+- **출처**: https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces
+- **크기**: 약 4GB (140,000장)
+- **구성**: Real 70,000장 + Fake 70,000장
+- **장점**: 신청 없이 바로 다운로드 가능
 
 ### 데이터 구성
 
 | 유형 | 설명 |
 |------|------|
-| **Real** | 실제 얼굴 이미지 |
-| **Fake** | 딥페이크로 생성된 얼굴 이미지 |
+| **Real** | StyleGAN으로 생성되지 않은 실제 얼굴 이미지 |
+| **Fake** | StyleGAN으로 생성된 가짜 얼굴 이미지 |
 
-### 데이터 분할
+### Workshop용 샘플 크기
 
-| 구분 | 비율 | 용도 |
-|------|------|------|
-| Train | 70% | 모델 학습 |
-| Validation | 15% | 학습 중 검증 |
-| Test | 15% | 최종 평가 (Before/After 비교) |
+| 구분 | 클래스당 | 총 개수 | 용도 |
+|------|----------|---------|------|
+| Train | 1,000장 | 2,000장 | 모델 학습 |
+| Validation | 200장 | 400장 | 학습 중 검증 |
+| Test | 200장 | 400장 | Before/After 비교 |
+
+## 사전 준비: Kaggle API
+
+1. [Kaggle](https://www.kaggle.com) 계정 생성
+2. **Account Settings** → **API** → **Create New Token** 클릭
+3. 다운로드된 `kaggle.json` 파일 확인
 
 ## 주요 코드
 
@@ -47,25 +58,33 @@ role = sagemaker.get_execution_role()
 bucket = sagemaker_session.default_bucket()
 ```
 
+### Kaggle API 설정
+
+```python
+!pip install -q kaggle
+import os
+os.makedirs(os.path.expanduser('~/.kaggle'), exist_ok=True)
+```
+
 ### 데이터 다운로드
 
 ```python
-# ⚠️ 강사가 안내한 버킷명으로 변경
-DATA_SOURCE_BUCKET = "workshop-deepfake-data"
-DATA_SOURCE_PREFIX = "kodf-sample"
-
-# S3에서 데이터 다운로드
-!aws s3 cp s3://{DATA_SOURCE_BUCKET}/{DATA_SOURCE_PREFIX}/ ./data/ --recursive
+# Kaggle 데이터셋 다운로드 (약 4GB)
+!kaggle datasets download -d xhlulu/140k-real-and-fake-faces --unzip -p ./kaggle_data
 ```
 
-### 데이터 구조 확인
+### 데이터 구조 변환
 
 ```python
-for split in ['train', 'val', 'test']:
-    split_dir = data_dir / split
-    real_count = len(list((split_dir / 'real').glob('*')))
-    fake_count = len(list((split_dir / 'fake').glob('*')))
-    print(f"{split}: Real={real_count}, Fake={fake_count}")
+# Workshop용 샘플 크기
+TRAIN_SIZE = 1000  # 클래스당
+VAL_SIZE = 200
+TEST_SIZE = 200
+
+# Kaggle → Workshop 형식 변환
+for label in ['real', 'fake']:
+    # train, val, test 폴더로 복사
+    ...
 ```
 
 ### 내 S3 버킷에 업로드
@@ -129,9 +148,10 @@ After (Fine-tuning 후):
 
 ## 체크포인트
 
-- [ ] 강사가 안내한 `DATA_SOURCE_BUCKET` 설정
-- [ ] 데이터 다운로드 완료
-- [ ] 데이터 구조 확인 (train/val/test)
+- [ ] Kaggle 계정 생성 및 API Token 발급
+- [ ] kaggle.json 설정 완료
+- [ ] 140k Real and Fake Faces 데이터셋 다운로드 완료
+- [ ] Workshop 형식으로 데이터 변환 완료 (train/val/test)
 - [ ] 내 S3 버킷에 업로드 완료
 - [ ] config.json 저장 완료
 
