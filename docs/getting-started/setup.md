@@ -1,72 +1,121 @@
 # 환경 설정
 
-## 1. 저장소 클론
+## Workshop Studio 접속
+
+> 실습용 임시 AWS 계정이 제공됩니다. 개인 AWS 계정은 필요 없습니다.
+
+### Step 1: Workshop Studio 접속
+
+1. 강사가 제공한 **Workshop URL** 접속
+2. **이메일** 입력 후 참가
+3. 약관 동의 후 **Join event** 클릭
+
+### Step 2: AWS 콘솔 접속
+
+1. 왼쪽 메뉴에서 **Open AWS Console** 클릭
+2. 새 탭에서 AWS 콘솔이 열림
+3. 리전이 **서울(ap-northeast-2)** 또는 지정된 리전인지 확인
+
+```
+⚠️ 주의: Workshop Studio 계정은 실습 종료 후 자동 삭제됩니다.
+         중요한 결과물은 로컬에 다운로드하세요.
+```
+
+---
+
+## SageMaker Studio 접속
+
+### Step 1: SageMaker Studio 열기
+
+1. AWS 콘솔 상단 검색창에 **SageMaker** 입력
+2. **Amazon SageMaker** 클릭
+3. 왼쪽 메뉴에서 **Studio** 클릭
+4. **Open Studio** 클릭
+
+### Step 2: JupyterLab 열기
+
+1. Studio 홈에서 **JupyterLab** 클릭
+2. Space 생성 화면이 나오면:
+   - Name: `deepfake-workshop`
+   - Instance: `ml.t3.medium` (기본값)
+3. **Run Space** 클릭
+4. JupyterLab이 열릴 때까지 대기
+
+---
+
+## 실습 코드 가져오기
+
+### 방법 1: Git Clone (권장)
+
+JupyterLab 터미널에서:
 
 ```bash
 git clone https://github.com/Hannah-ireum/deepfake-detection-sagemaker.git
 cd deepfake-detection-sagemaker
 ```
 
-## 2. 가상환경 설정 (권장)
+### 방법 2: 직접 업로드
 
-```bash
-# 가상환경 생성
-python -m venv venv
+1. GitHub에서 ZIP 다운로드
+2. JupyterLab에 드래그 앤 드롭
 
-# 활성화 (macOS/Linux)
-source venv/bin/activate
+---
 
-# 활성화 (Windows)
-venv\Scripts\activate
-```
+## 설정 파일 생성
 
-## 3. 의존성 설치
-
-```bash
-pip install -r requirements.txt
-```
-
-### 주요 패키지
-
-| 패키지 | 버전 | 용도 |
-|--------|------|------|
-| sagemaker | 2.x | SageMaker SDK |
-| torch | 2.x | PyTorch 딥러닝 |
-| timm | 0.9.x | 사전학습 모델 |
-| gradio | 4.x | 데모 UI |
-| boto3 | 1.x | AWS SDK |
-
-## 4. AWS 자격 증명 확인
-
-```bash
-# 현재 설정된 AWS 계정 확인
-aws sts get-caller-identity
-
-# SageMaker 리전 확인
-aws configure get region
-```
-
-## 5. S3 버킷 설정
-
-노트북 실행 전에 S3 버킷 이름을 설정합니다.
+첫 번째 노트북 실행 전에 `config.json`을 생성합니다.
 
 ```python
-# 노트북 상단에서 설정
-BUCKET_NAME = "your-bucket-name"
-PREFIX = "deepfake-detection"
+import json
+import sagemaker
+
+session = sagemaker.Session()
+config = {
+    "bucket": session.default_bucket(),
+    "prefix": "deepfake-detection",
+    "role": sagemaker.get_execution_role(),
+    "region": session.boto_region_name
+}
+
+with open("config.json", "w") as f:
+    json.dump(config, f, indent=2)
+
+print("설정 완료!")
+print(f"Bucket: {config['bucket']}")
+print(f"Region: {config['region']}")
 ```
 
-## 6. 실습 시작
+---
 
-모든 설정이 완료되면 `1_data_preparation/prepare_data.ipynb`부터 순서대로 실행합니다.
+## 환경 확인 체크리스트
+
+| 항목 | 확인 방법 |
+|------|----------|
+| Workshop 접속 | AWS 콘솔 열림 |
+| SageMaker Studio | JupyterLab 열림 |
+| Git Clone | `deepfake-detection-sagemaker` 폴더 존재 |
+| config.json | 버킷, 역할 정보 출력됨 |
+
+---
 
 ## 문제 해결
 
-### 권한 오류 발생 시
-IAM Role에 필요한 정책이 연결되어 있는지 확인합니다.
+### Studio가 열리지 않을 때
+- 브라우저 팝업 차단 해제
+- 다른 브라우저로 시도 (Chrome 권장)
 
-### 패키지 설치 오류 시
+### 권한 오류 발생 시
+- Workshop Studio 세션이 만료되었을 수 있음
+- 이벤트 페이지로 돌아가서 다시 콘솔 열기
+
+### Git Clone 오류 시
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt --force-reinstall
+# HTTPS로 시도
+git clone https://github.com/Hannah-ireum/deepfake-detection-sagemaker.git
 ```
+
+---
+
+## 다음 단계
+
+환경 설정이 완료되면 [1. 데이터 준비](../labs/01-data-preparation.md)로 이동합니다.
