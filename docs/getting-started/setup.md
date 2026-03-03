@@ -61,29 +61,17 @@ cd deepfake-detection-sagemaker
 
 ---
 
-## 설정 파일 생성
+## 실습 시작
 
-첫 번째 노트북 실행 전에 `config.json`을 생성합니다.
+Git Clone 후 바로 첫 번째 노트북을 실행하면 됩니다.
 
-```python
-import json
-import sagemaker
-
-session = sagemaker.Session()
-config = {
-    "bucket": session.default_bucket(),
-    "prefix": "deepfake-detection",
-    "role": sagemaker.get_execution_role(),
-    "region": session.boto_region_name
-}
-
-with open("config.json", "w") as f:
-    json.dump(config, f, indent=2)
-
-print("설정 완료!")
-print(f"Bucket: {config['bucket']}")
-print(f"Region: {config['region']}")
 ```
+deepfake-detection-sagemaker/
+└── 1_data_preparation/
+    └── prepare_data.ipynb  ← 여기서 시작!
+```
+
+> `config.json`은 첫 번째 노트북 실행 시 **자동 생성**됩니다.
 
 ---
 
