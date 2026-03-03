@@ -5,50 +5,37 @@
 ## 개요
 
 딥페이크 탐지 실습을 위한 데이터를 준비합니다.
+**그냥 셀을 순서대로 실행하면 됩니다!**
 
 ## 학습 내용
 
 - 딥페이크 탐지용 데이터셋 구조 이해
-- Kaggle에서 데이터 다운로드
+- Workshop 데이터 다운로드
 - S3 버킷에 데이터 업로드
 - config.json 생성
 
-## 데이터 소스
+## 데이터 구성
 
-**140k Real and Fake Faces** (Kaggle) 데이터셋을 사용합니다.
+| 구분 | Real | Fake | 합계 | 용도 |
+|------|------|------|------|------|
+| Train | 1,000장 | 1,000장 | 2,000장 | 모델 학습 |
+| Validation | 200장 | 200장 | 400장 | 학습 중 검증 |
+| Test | 200장 | 200장 | 400장 | Before/After 비교 |
 
-- **출처**: https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces
-- **크기**: 약 4GB (140,000장)
-- **구성**: Real 70,000장 + Fake 70,000장
-- **장점**: 신청 없이 바로 다운로드 가능
+## 단계별 실행 가이드
 
-### 데이터 구성
+### Step 1: 노트북 열기
 
-| 유형 | 설명 |
-|------|------|
-| **Real** | StyleGAN으로 생성되지 않은 실제 얼굴 이미지 |
-| **Fake** | StyleGAN으로 생성된 가짜 얼굴 이미지 |
+1. 왼쪽 파일 브라우저에서 `1_data_preparation` 폴더 클릭
+2. `prepare_data.ipynb` 더블클릭
 
-### Workshop용 샘플 크기
+### Step 2: 환경 설정 (셀 1-2)
 
-| 구분 | 클래스당 | 총 개수 | 용도 |
-|------|----------|---------|------|
-| Train | 1,000장 | 2,000장 | 모델 학습 |
-| Validation | 200장 | 400장 | 학습 중 검증 |
-| Test | 200장 | 400장 | Before/After 비교 |
-
-## 사전 준비: Kaggle API
-
-1. [Kaggle](https://www.kaggle.com) 계정 생성
-2. **Account Settings** → **API** → **Create New Token** 클릭
-3. 다운로드된 `kaggle.json` 파일 확인
-
-## 주요 코드
-
-### 환경 설정
+첫 번째 코드 셀을 실행합니다.
 
 ```python
 import os
+import boto3
 import sagemaker
 from pathlib import Path
 
@@ -58,76 +45,109 @@ role = sagemaker.get_execution_role()
 bucket = sagemaker_session.default_bucket()
 ```
 
-### Kaggle API 설정
+**실행 방법:** `Shift + Enter`
 
-```python
-!pip install -q kaggle
-import os
-os.makedirs(os.path.expanduser('~/.kaggle'), exist_ok=True)
+**예상 출력:**
+```
+Project Root: /home/sagemaker-user/deepfake-detection-sagemaker
+Region: ap-northeast-2
+Role: arn:aws:iam::123456789012:role/...
+Bucket: sagemaker-ap-northeast-2-123456789012
 ```
 
-### 데이터 다운로드
+### Step 3: 데이터 다운로드 (셀 3-4)
+
+Workshop 데이터를 다운로드합니다.
 
 ```python
-# Kaggle 데이터셋 다운로드 (약 4GB)
-!kaggle datasets download -d xhlulu/140k-real-and-fake-faces --unzip -p ./kaggle_data
+DATA_SOURCE = "s3://deepfake-detection-workshop-public/sample-data"
+!aws s3 cp {DATA_SOURCE}/ ./data/ --recursive --no-sign-request
 ```
 
-### 데이터 구조 변환
+**예상 출력:**
+```
+데이터 소스: s3://deepfake-detection-workshop-public/sample-data
+데이터 다운로드 중... (약 1-2분 소요)
 
-```python
-# Workshop용 샘플 크기
-TRAIN_SIZE = 1000  # 클래스당
-VAL_SIZE = 200
-TEST_SIZE = 200
-
-# Kaggle → Workshop 형식 변환
-for label in ['real', 'fake']:
-    # train, val, test 폴더로 복사
-    ...
+download: s3://...
+...
+✅ 다운로드 완료!
 ```
 
-### 내 S3 버킷에 업로드
+### Step 4: 데이터 확인 (셀 5)
 
-```python
-s3_data_path = sagemaker_session.upload_data(
-    path='./data',
-    bucket=bucket,
-    key_prefix=f'{prefix}/data'
-)
+다운로드된 데이터 구조를 확인합니다.
+
+**예상 출력:**
+```
+데이터 디렉토리 구조:
+./data
+./data/train
+./data/train/real
+./data/train/fake
+./data/val
+./data/val/real
+./data/val/fake
+./data/test
+./data/test/real
+./data/test/fake
+
+데이터 개수 확인:
+train: Real=1000, Fake=1000, Total=2000
+val: Real=200, Fake=200, Total=400
+test: Real=200, Fake=200, Total=400
+
+총 이미지 수: 2800장
 ```
 
-### config.json 저장
+### Step 5: 샘플 이미지 확인 (셀 6-7)
 
-```python
-config = {
-    'bucket': bucket,
-    'prefix': prefix,
-    's3_train_path': f's3://{bucket}/{prefix}/data/train',
-    's3_val_path': f's3://{bucket}/{prefix}/data/val',
-    's3_test_path': f's3://{bucket}/{prefix}/data/test',
-    'local_test_path': str(data_dir.absolute() / 'test'),
-    'role': role,
-    'region': region
+Real과 Fake 이미지 샘플을 시각화합니다.
+
+![샘플 이미지](../images/sample-images.png)
+
+- **상단**: Real (실제 얼굴)
+- **하단**: Fake (AI 생성 얼굴)
+
+### Step 6: S3 업로드 (셀 8-9)
+
+데이터를 본인의 S3 버킷에 업로드합니다.
+
+**예상 출력:**
+```
+내 S3 버킷에 업로드 중: s3://sagemaker-ap-northeast-2-123456789012/deepfake-detection/data/
+...
+✅ 업로드 완료: s3://sagemaker-ap-northeast-2-123456789012/deepfake-detection/data
+```
+
+### Step 7: 설정 저장 (셀 10-11)
+
+config.json을 생성합니다. 이 파일은 이후 노트북에서 사용됩니다.
+
+**예상 출력:**
+```
+✅ 설정 저장 완료: /home/sagemaker-user/deepfake-detection-sagemaker/config.json
+
+저장된 설정:
+{
+  "bucket": "sagemaker-ap-northeast-2-123456789012",
+  "prefix": "deepfake-detection",
+  ...
 }
-
-config_path = PROJECT_ROOT / 'config.json'
-with open(config_path, 'w') as f:
-    json.dump(config, f, indent=2)
 ```
 
 ## 데이터 구조
 
 ```
 data/
-├── train/           # 학습 데이터
+├── train/           # 학습 데이터 (2,000장)
 │   ├── real/        # 실제 얼굴 이미지
-│   └── fake/        # 딥페이크 얼굴 이미지
-├── val/             # 검증 데이터
+│   └── fake/        # AI 생성 얼굴 이미지
+├── val/             # 검증 데이터 (400장)
 │   ├── real/
 │   └── fake/
-└── test/            # 테스트 데이터 (Before/After 비교용)
-    ├── real/
+└── test/            # 테스트 데이터 (400장)
+    ├── real/        # Before/After 비교에 사용
     └── fake/
 ```
 
@@ -137,24 +157,42 @@ data/
 동일한 Test 데이터 사용:
 
 Before (Fine-tuning 전):
-  └─ FF++ 모델 → 한국인 테스트 데이터 → ~70% 정확도
+  └─ 사전학습 모델 → Test 데이터 → ~70% 정확도
 
 After (Fine-tuning 후):
-  └─ KoDF 학습 모델 → 동일 테스트 데이터 → ~90% 정확도
+  └─ Fine-tuned 모델 → 동일 Test 데이터 → ~90% 정확도
 
 비교:
-  └─ 동일 데이터에서 +20% 성능 향상 확인
+  └─ 동일 데이터에서 성능 향상 확인
 ```
 
 ## 체크포인트
 
-- [ ] Kaggle 계정 생성 및 API Token 발급
-- [ ] kaggle.json 설정 완료
-- [ ] 140k Real and Fake Faces 데이터셋 다운로드 완료
-- [ ] Workshop 형식으로 데이터 변환 완료 (train/val/test)
-- [ ] 내 S3 버킷에 업로드 완료
+- [ ] 환경 설정 완료 (bucket, role 출력 확인)
+- [ ] 데이터 다운로드 완료 (2,800장)
+- [ ] 샘플 이미지 시각화 확인
+- [ ] S3 업로드 완료
 - [ ] config.json 저장 완료
+
+## 문제 해결
+
+### 데이터 다운로드 실패
+
+```bash
+# 수동 다운로드 시도
+aws s3 cp s3://deepfake-detection-workshop-public/sample-data/ ./data/ --recursive --no-sign-request
+```
+
+### config.json 저장 오류
+
+```python
+# 경로 확인
+print(PROJECT_ROOT)
+print(config_path)
+```
 
 ## 다음 단계
 
 데이터 준비가 완료되면 [2. Before 평가](02-before-evaluation.md)로 이동합니다.
+
+Fine-tuning **전** 모델의 성능을 평가합니다.

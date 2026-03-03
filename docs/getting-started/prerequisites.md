@@ -2,7 +2,7 @@
 
 ## Workshop Studio 사용 시
 
-> 실습용 AWS 계정이 제공되므로 별도 준비가 필요 없습니다.
+> **별도 준비가 필요 없습니다!** 그냥 오시면 됩니다.
 
 ### 필요한 것
 
@@ -11,26 +11,19 @@
 | **노트북/PC** | 인터넷 연결 가능 |
 | **웹 브라우저** | Chrome 권장 |
 | **Workshop URL** | 강사가 제공 |
-| **Kaggle 계정** | 데이터 다운로드용 (무료) |
 
-### Kaggle API 설정 (Workshop 전 준비)
-
-1. [Kaggle](https://www.kaggle.com) 회원가입
-2. 로그인 후 우측 상단 프로필 아이콘 클릭
-3. **Settings** 클릭
-4. **API** 섹션에서 **Create New Token** 클릭
-5. `kaggle.json` 파일이 다운로드됨 (Workshop에서 사용)
-
-### 제공되는 것
+### 자동으로 제공되는 것
 
 - AWS 임시 계정 (자동 생성)
 - SageMaker Studio 접근 권한
 - S3 버킷 (자동 생성)
 - IAM Role (자동 설정)
 - 필요한 서비스 할당량
+- **Workshop 데이터** (Public S3에서 자동 다운로드)
 
 ```
-✅ AWS 계정, CLI 설정, IAM 권한 등은 모두 자동으로 준비됩니다!
+✅ AWS 계정, 데이터, CLI 설정, IAM 권한 등 모두 자동으로 준비됩니다!
+   노트북 셀만 순서대로 실행하면 됩니다.
 ```
 
 ---
