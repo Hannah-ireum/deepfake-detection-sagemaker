@@ -11,6 +11,7 @@ KoDF(Korean DeepFake) 샘플 데이터를 준비하고 S3에 업로드합니다.
 - KoDF 데이터셋 구조 이해
 - 딥페이크 탐지를 위한 데이터 전처리
 - S3 데이터 업로드
+- **config.json 생성** (이후 노트북에서 사용)
 
 ## KoDF 데이터셋
 
@@ -20,14 +21,15 @@ Korean DeepFake 데이터셋은 AI Hub에서 제공하는 한국인 얼굴 기�
 
 ```
 data/
-├── real/           # 실제 영상에서 추출한 프레임
-│   ├── frame_001.jpg
-│   ├── frame_002.jpg
-│   └── ...
-└── fake/           # 딥페이크 영상에서 추출한 프레임
-    ├── frame_001.jpg
-    ├── frame_002.jpg
-    └── ...
+├── train/          # 학습 데이터 (70%)
+│   ├── real/       # 실제 영상 프레임
+│   └── fake/       # 딥페이크 영상 프레임
+├── val/            # 검증 데이터 (15%)
+│   ├── real/
+│   └── fake/
+└── test/           # 테스트 데이터 (15%)
+    ├── real/
+    └── fake/
 ```
 
 ### 데이터 분할
@@ -40,56 +42,99 @@ data/
 
 ## 주요 코드
 
-### 데이터 다운로드 및 전처리
+### 환경 설정
 
 ```python
 import os
-from sklearn.model_selection import train_test_split
+import sagemaker
+from pathlib import Path
 
-# 데이터 경로 설정
-data_dir = "data"
-real_dir = os.path.join(data_dir, "real")
-fake_dir = os.path.join(data_dir, "fake")
+# 프로젝트 루트 경로 설정
+PROJECT_ROOT = Path(os.getcwd()).parent
 
-# 이미지 파일 목록
-real_images = [os.path.join(real_dir, f) for f in os.listdir(real_dir)]
-fake_images = [os.path.join(fake_dir, f) for f in os.listdir(fake_dir)]
+# SageMaker 세션 설정
+sagemaker_session = sagemaker.Session()
+role = sagemaker.get_execution_role()
+bucket = sagemaker_session.default_bucket()
+prefix = 'deepfake-detection'
+```
 
-# 레이블 생성 (0: real, 1: fake)
-all_images = real_images + fake_images
-labels = [0] * len(real_images) + [1] * len(fake_images)
+### 샘플 데이터 생성
 
-# 데이터 분할
-train_imgs, test_imgs, train_labels, test_labels = train_test_split(
-    all_images, labels, test_size=0.3, stratify=labels, random_state=42
-)
+실습에서는 샘플 이미지를 생성합니다. 실제로는 KoDF 데이터를 사용합니다.
+
+```python
+from pathlib import Path
+
+data_dir = Path('./data')
+for split in ['train', 'val', 'test']:
+    for label in ['real', 'fake']:
+        (data_dir / split / label).mkdir(parents=True, exist_ok=True)
 ```
 
 ### S3 업로드
 
 ```python
-import sagemaker
-
-session = sagemaker.Session()
-bucket = session.default_bucket()
-prefix = "deepfake-detection"
-
-# 학습 데이터 업로드
-train_s3_path = session.upload_data(
-    path="data/train",
+# 데이터 업로드
+s3_data_path = sagemaker_session.upload_data(
+    path='./data',
     bucket=bucket,
-    key_prefix=f"{prefix}/train"
+    key_prefix=f'{prefix}/data'
 )
 
-print(f"Training data uploaded to: {train_s3_path}")
+print(f"데이터 업로드 완료: {s3_data_path}")
 ```
+
+### config.json 생성
+
+이후 노트북에서 사용할 설정 파일을 **프로젝트 루트**에 저장합니다.
+
+```python
+import json
+
+config = {
+    'bucket': bucket,
+    'prefix': prefix,
+    'project_root': str(PROJECT_ROOT),
+    's3_train_path': f's3://{bucket}/{prefix}/data/train',
+    's3_val_path': f's3://{bucket}/{prefix}/data/val',
+    's3_test_path': f's3://{bucket}/{prefix}/data/test',
+    'local_test_path': str(data_dir / 'test'),
+    'role': role,
+    'region': region
+}
+
+# 프로젝트 루트에 저장
+config_path = PROJECT_ROOT / 'config.json'
+with open(config_path, 'w') as f:
+    json.dump(config, f, indent=2)
+
+print(f"설정 저장: {config_path}")
+```
+
+## config.json 구조
+
+```json
+{
+  "bucket": "sagemaker-us-east-1-123456789",
+  "prefix": "deepfake-detection",
+  "s3_train_path": "s3://bucket/deepfake-detection/data/train",
+  "s3_val_path": "s3://bucket/deepfake-detection/data/val",
+  "s3_test_path": "s3://bucket/deepfake-detection/data/test",
+  "local_test_path": "/home/.../data/test",
+  "role": "arn:aws:iam::...",
+  "region": "us-east-1"
+}
+```
+
+> 이 파일은 이후 모든 노트북에서 `PROJECT_ROOT / 'config.json'`으로 접근합니다.
 
 ## 체크포인트
 
-- [ ] 데이터 다운로드 완료
-- [ ] 전처리 완료 (리사이즈, 정규화)
+- [ ] 샘플 데이터 생성 완료
 - [ ] Train/Val/Test 분할 완료
 - [ ] S3 업로드 완료
+- [ ] **config.json 생성 확인**
 
 ## 다음 단계
 

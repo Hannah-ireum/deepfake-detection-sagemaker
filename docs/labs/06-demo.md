@@ -10,7 +10,7 @@ Fine-tuned 모델을 SageMaker Endpoint로 배포하고 Gradio UI로 데모합�
 
 - SageMaker Endpoint 배포
 - 실시간 추론 API 호출
-- Gradio 데모 UI 구축
+- Gradio 데모 UI (노트북 내 실행)
 
 ## Part 1: SageMaker Endpoint 배포
 
@@ -29,150 +29,139 @@ Fine-tuned 모델을 SageMaker Endpoint로 배포하고 Gradio UI로 데모합�
 └─────────────────────────────────────────────────┘
 ```
 
+### Endpoint 이름 생성
+
+여러 사용자가 동시에 실습할 때 충돌을 방지하기 위해 **타임스탬프**를 추가합니다.
+
+```python
+from datetime import datetime
+
+# 고유한 Endpoint 이름 생성
+ENDPOINT_NAME = f"deepfake-detector-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+print(f"Endpoint Name: {ENDPOINT_NAME}")
+# 예: deepfake-detector-20240304-143052
+```
+
 ### Endpoint 배포 코드
 
 ```python
 from sagemaker.pytorch import PyTorchModel
 
 # 모델 정의
-model = PyTorchModel(
-    model_data=estimator.model_data,
+pytorch_model = PyTorchModel(
+    model_data=config['model_data'],
     role=role,
-    framework_version='2.0.0',
-    py_version='py310',
     entry_point='inference.py',
-    source_dir='6_demo'
+    source_dir='.',
+    framework_version='2.0.0',
+    py_version='py310'
 )
 
-# Endpoint 배포
-predictor = model.deploy(
-    instance_type='ml.g4dn.xlarge',
+# Endpoint 배포 (약 5-10분 소요)
+print("Endpoint 배포 중...")
+predictor = pytorch_model.deploy(
     initial_instance_count=1,
-    endpoint_name='deepfake-detection-endpoint'
+    instance_type='ml.g4dn.xlarge',
+    endpoint_name=ENDPOINT_NAME
 )
-```
 
-### Inference 스크립트 (inference.py)
-
-```python
-import torch
-import json
-import base64
-from io import BytesIO
-from PIL import Image
-
-def model_fn(model_dir):
-    """모델 로드"""
-    model = create_model()
-    model.load_state_dict(torch.load(f'{model_dir}/model.pth'))
-    model.eval()
-    return model
-
-def input_fn(request_body, content_type):
-    """입력 전처리"""
-    if content_type == 'application/json':
-        data = json.loads(request_body)
-        image_data = base64.b64decode(data['image'])
-        image = Image.open(BytesIO(image_data)).convert('RGB')
-        return transform(image).unsqueeze(0)
-    raise ValueError(f"Unsupported content type: {content_type}")
-
-def predict_fn(input_data, model):
-    """추론"""
-    with torch.no_grad():
-        output = model(input_data)
-        prob = torch.softmax(output, dim=1)
-    return prob
-
-def output_fn(prediction, accept):
-    """출력 포맷"""
-    fake_prob = prediction[0][1].item()
-    result = {
-        'prediction': 'FAKE' if fake_prob > 0.5 else 'REAL',
-        'confidence': fake_prob if fake_prob > 0.5 else 1 - fake_prob,
-        'fake_probability': fake_prob
-    }
-    return json.dumps(result)
+print(f"✅ Endpoint 배포 완료: {predictor.endpoint_name}")
 ```
 
 ## Part 2: Gradio 데모 UI
 
-### Gradio 앱 코드 (gradio_app.py)
+### 노트북 내에서 직접 실행
+
+별도 Python 파일 실행 없이 노트북에서 바로 Gradio를 실행합니다.
 
 ```python
 import gradio as gr
 import boto3
-import base64
-import json
+from io import BytesIO
 
 runtime = boto3.client('sagemaker-runtime')
-ENDPOINT_NAME = 'deepfake-detection-endpoint'
 
 def detect_deepfake(image):
-    # 이미지를 base64로 인코딩
+    """딥페이크 탐지 함수"""
+    # 이미지를 바이트로 변환
     buffered = BytesIO()
     image.save(buffered, format="JPEG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
+    img_bytes = buffered.getvalue()
 
     # Endpoint 호출
     response = runtime.invoke_endpoint(
         EndpointName=ENDPOINT_NAME,
-        ContentType='application/json',
-        Body=json.dumps({'image': img_str})
+        ContentType='application/x-image',
+        Body=img_bytes
     )
 
     result = json.loads(response['Body'].read().decode())
 
-    # 결과 포맷팅
-    label = result['prediction']
-    confidence = result['confidence']
+    prediction = result.get('prediction', 'Unknown')
+    confidence = result.get('confidence', 0)
 
-    if label == 'FAKE':
-        return f"🚨 FAKE 탐지 (확신도: {confidence:.1%})"
+    if prediction == 'FAKE':
+        return f"🚨 FAKE 탐지!\n확신도: {confidence:.1%}"
     else:
-        return f"✅ REAL (확신도: {confidence:.1%})"
+        return f"✅ REAL\n확신도: {confidence:.1%}"
 
 # Gradio 인터페이스
 demo = gr.Interface(
     fn=detect_deepfake,
     inputs=gr.Image(type="pil", label="이미지 업로드"),
     outputs=gr.Textbox(label="탐지 결과"),
-    title="딥페이크 탐지 데모",
-    description="이미지를 업로드하면 딥페이크 여부를 판별합니다.",
-    examples=[
-        ["examples/real_sample.jpg"],
-        ["examples/fake_sample.jpg"]
-    ]
+    title="🎭 딥페이크 탐지 데모",
+    description="이미지를 업로드하면 딥페이크 여부를 판별합니다."
 )
 
+# 실행 (share=True로 공개 URL 생성)
 demo.launch(share=True)
 ```
 
-### 데모 실행
+### 데모 UI 화면
 
-```bash
-cd 6_demo
-python gradio_app.py
+```
+┌────────────────────────────────────────┐
+│     🎭 딥페이크 탐지 데모              │
+├────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐   │
+│  │              │  │              │   │
+│  │   이미지     │  │   탐지 결과  │   │
+│  │   업로드     │  │              │   │
+│  │              │  │  ✅ REAL     │   │
+│  │              │  │  확신도: 95% │   │
+│  └──────────────┘  └──────────────┘   │
+│                                        │
+│         [Submit]  [Clear]              │
+└────────────────────────────────────────┘
 ```
 
 ## 비용 관리
 
 ### Endpoint 삭제 (중요!)
 
-실습 완료 후 반드시 Endpoint를 삭제하세요:
+실습 완료 후 **반드시** Endpoint를 삭제하세요:
 
 ```python
+# 주석 해제 후 실행
 predictor.delete_endpoint()
-print("Endpoint deleted successfully!")
+print(f"✅ Endpoint '{ENDPOINT_NAME}' 삭제 완료!")
 ```
+
+### 비용 참고
+
+| 상태 | 시간당 비용 |
+|------|-------------|
+| Endpoint 실행 중 | ~$0.74/hr |
+| Endpoint 삭제 후 | $0.00 |
 
 ## 체크포인트
 
+- [ ] Endpoint 이름 확인 (타임스탬프 포함)
 - [ ] SageMaker Endpoint 배포 완료
-- [ ] Endpoint 추론 테스트
 - [ ] Gradio 데모 실행
-- [ ] 실시간 탐지 확인
-- [ ] **Endpoint 삭제 완료**
+- [ ] 이미지 업로드 후 탐지 결과 확인
+- [ ] **⚠️ Endpoint 삭제 완료**
 
 ## 실습 완료
 
@@ -180,8 +169,9 @@ print("Endpoint deleted successfully!")
 
 ### 배운 내용 정리
 
-1. 딥페이크 탐지 모델의 도메인 특화 Fine-tuning
-2. SageMaker Training Job 활용
-3. 성능 평가 및 비교 분석
-4. 실시간 추론 Endpoint 배포
-5. Gradio를 활용한 데모 UI 구축
+1. ✅ 딥페이크 탐지 모델의 도메인 특화 Fine-tuning
+2. ✅ SageMaker Experiments로 실험 추적
+3. ✅ Model Registry로 모델 버전 관리
+4. ✅ Spot Instance로 비용 절감
+5. ✅ 실시간 추론 Endpoint 배포
+6. ✅ Gradio를 활용한 데모 UI 구축
