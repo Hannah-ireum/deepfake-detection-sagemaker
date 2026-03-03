@@ -2,12 +2,29 @@
 import gradio as gr
 import boto3
 import json
+import os
+from pathlib import Path
 
-ENDPOINT_NAME = 'deepfake-detector-korean'
+# config.json에서 endpoint 이름 로드
+PROJECT_ROOT = Path(__file__).parent.parent
+config_path = PROJECT_ROOT / 'config.json'
+
+if config_path.exists():
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    ENDPOINT_NAME = config.get('endpoint_name', 'deepfake-detector')
+else:
+    print(f"⚠️ config.json not found at {config_path}")
+    print("노트북에서 먼저 Endpoint를 배포해주세요.")
+    ENDPOINT_NAME = None
+
 runtime = boto3.client('sagemaker-runtime')
 
 def predict_deepfake(image):
     """이미지 딥페이크 판별"""
+    if ENDPOINT_NAME is None:
+        return "❌ Endpoint가 설정되지 않았습니다. 노트북에서 먼저 배포해주세요."
+
     import io
     from PIL import Image
 
@@ -16,22 +33,25 @@ def predict_deepfake(image):
     Image.fromarray(image).save(img_byte_arr, format='JPEG')
     img_bytes = img_byte_arr.getvalue()
 
-    # SageMaker Endpoint 호출
-    response = runtime.invoke_endpoint(
-        EndpointName=ENDPOINT_NAME,
-        ContentType='application/x-image',
-        Body=img_bytes
-    )
+    try:
+        # SageMaker Endpoint 호출
+        response = runtime.invoke_endpoint(
+            EndpointName=ENDPOINT_NAME,
+            ContentType='application/x-image',
+            Body=img_bytes
+        )
 
-    result = json.loads(response['Body'].read().decode())
+        result = json.loads(response['Body'].read().decode())
 
-    prediction = result['prediction']
-    confidence = result['confidence'] * 100
+        prediction = result['prediction']
+        confidence = result['confidence'] * 100
 
-    if prediction == 'FAKE':
-        return f"🚨 FAKE (가짜) - 신뢰도: {confidence:.1f}%"
-    else:
-        return f"✅ REAL (진짜) - 신뢰도: {confidence:.1f}%"
+        if prediction == 'FAKE':
+            return f"🚨 FAKE (가짜) - 신뢰도: {confidence:.1f}%"
+        else:
+            return f"✅ REAL (진짜) - 신뢰도: {confidence:.1f}%"
+    except Exception as e:
+        return f"❌ 오류 발생: {str(e)}"
 
 # Gradio 인터페이스
 demo = gr.Interface(
@@ -44,4 +64,5 @@ demo = gr.Interface(
 )
 
 if __name__ == "__main__":
+    print(f"Endpoint: {ENDPOINT_NAME}")
     demo.launch(share=True)
