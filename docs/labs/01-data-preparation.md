@@ -61,7 +61,7 @@ Workshop 데이터를 다운로드합니다.
 
 ```python
 DATA_SOURCE = "s3://deepfake-detection-workshop-public/sample-data"
-!aws s3 cp {DATA_SOURCE}/ ./data/ --recursive --no-sign-request
+!aws s3 cp {DATA_SOURCE}/ ./data/ --recursive
 ```
 
 **예상 출력:**
@@ -180,7 +180,7 @@ After (Fine-tuning 후):
 
 ```bash
 # 수동 다운로드 시도
-aws s3 cp s3://deepfake-detection-workshop-public/sample-data/ ./data/ --recursive --no-sign-request
+aws s3 cp s3://deepfake-detection-workshop-public/sample-data/ ./data/ --recursive
 ```
 
 ### config.json 저장 오류
