@@ -22,3 +22,4 @@
 * [비용 최적화](appendix/cost-optimization.md)
 * [트러블슈팅](appendix/troubleshooting.md)
 * [참고 자료](appendix/references.md)
+* [강사용 가이드](appendix/instructor-guide.md)
