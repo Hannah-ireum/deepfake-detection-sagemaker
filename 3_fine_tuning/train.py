@@ -91,6 +91,32 @@ def apply_lora(model, rank=8):
     return model
 
 
+def merge_lora_weights(model):
+    """LoRA 가중치를 원본 레이어에 병합하여 표준 모델로 변환"""
+    if hasattr(model.backbone, 'classifier') and isinstance(model.backbone.classifier, LoRALayer):
+        lora_layer = model.backbone.classifier
+
+        # LoRA 가중치 병합: W' = W + B @ A
+        merged_weight = lora_layer.original_layer.weight.data + \
+                       lora_layer.scaling * (lora_layer.lora_B.weight.data @ lora_layer.lora_A.weight.data)
+
+        # 새 Linear 레이어 생성
+        in_features = lora_layer.original_layer.in_features
+        out_features = lora_layer.original_layer.out_features
+        new_classifier = nn.Linear(in_features, out_features)
+
+        # 병합된 가중치 복사
+        new_classifier.weight.data = merged_weight
+        if lora_layer.original_layer.bias is not None:
+            new_classifier.bias.data = lora_layer.original_layer.bias.data
+
+        # 모델에 적용
+        model.backbone.classifier = new_classifier
+        print("✓ LoRA 가중치가 병합되었습니다.")
+
+    return model
+
+
 def apply_layer_freezing(model):
     """Backbone 동결, Classifier만 학습"""
     # 먼저 모든 파라미터 동결
@@ -206,6 +232,9 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device}")
 
+    # 모델 저장 디렉토리 생성
+    os.makedirs(args.model_dir, exist_ok=True)
+
     # 데이터 로더
     train_loader, val_loader = get_data_loaders(args.train, args.val, args.batch_size)
     print(f"Train samples: {len(train_loader.dataset)}")
@@ -272,8 +301,27 @@ def main():
             torch.save(model.state_dict(), os.path.join(args.model_dir, 'best_model.pth'))
             print(f"✓ Best model saved! (Val Acc: {val_acc*100:.2f}%)")
 
-    # 최종 모델 저장
-    torch.save(model.state_dict(), os.path.join(args.model_dir, 'model.pth'))
+    # LoRA인 경우 가중치 병합 (표준 모델로 변환)
+    if args.finetune_method == 'lora':
+        # 최종 모델 병합 및 저장
+        model = merge_lora_weights(model)
+        torch.save(model.state_dict(), os.path.join(args.model_dir, 'model.pth'))
+
+        # best_model도 병합하여 다시 저장
+        best_model_path = os.path.join(args.model_dir, 'best_model.pth')
+        if os.path.exists(best_model_path):
+            # LoRA 구조로 저장된 best_model 로드
+            best_model = DeepfakeDetector(model_name=args.model_name, pretrained=False)
+            best_model = apply_layer_freezing(best_model)
+            best_model = apply_lora(best_model, rank=args.lora_rank)
+            best_model.load_state_dict(torch.load(best_model_path, map_location=device))
+            # 병합 후 저장
+            best_model = merge_lora_weights(best_model)
+            torch.save(best_model.state_dict(), best_model_path)
+            print("✓ Best model의 LoRA 가중치도 병합되었습니다.")
+    else:
+        # Full/Freeze는 그대로 저장
+        torch.save(model.state_dict(), os.path.join(args.model_dir, 'model.pth'))
 
     # 학습 기록 저장
     history['best_val_acc'] = best_val_acc
