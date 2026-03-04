@@ -53,33 +53,11 @@ Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning�
 
 모든 파라미터를 학습합니다. 가장 높은 성능을 낼 수 있지만 과적합 위험이 있습니다.
 
-```
-┌─────────────────────────────────────┐
-│  EfficientNet-B0                    │
-├─────────────────────────────────────┤
-│  [Conv Block 1] ← 학습 가능 (✓)     │
-│  [Conv Block 2] ← 학습 가능 (✓)     │
-│  [Conv Block 3] ← 학습 가능 (✓)     │
-│  ...                                │
-│  [Classifier]   ← 학습 가능 (✓)     │
-└─────────────────────────────────────┘
-```
+<img src="../images/layer_comparison.png" alt="Full vs Freeze" width="600">
 
 ### 과적합(Overfitting) 위험
 
-```
-       Loss
-         │
-         │    ╭── Train Loss (계속 감소)
-         │   ╱
-         │  ╱    ╭── Val Loss (증가 시작) ← 과적합!
-         │ ╱    ╱
-         │╱____╱
-         └─────────────────────▶ Epoch
-              ^
-              │
-         여기서 멈춰야 함 (Early Stopping)
-```
+<img src="../images/overfitting_graph.png" alt="Overfitting Detection" width="450">
 
 **과적합 방지 전략:**
 - Data Augmentation (회전, 반전, 색상 변환)
@@ -93,19 +71,7 @@ Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning�
 
 ### 개념
 
-Backbone(특징 추출기)은 동결하고 Classifier만 학습합니다.
-
-```
-┌─────────────────────────────────────┐
-│  EfficientNet-B0                    │
-├─────────────────────────────────────┤
-│  [Conv Block 1] ← 동결 🔒           │
-│  [Conv Block 2] ← 동결 🔒           │
-│  [Conv Block 3] ← 동결 🔒           │
-│  ...                                │
-│  [Classifier]   ← 학습 가능 ✓       │
-└─────────────────────────────────────┘
-```
+Backbone(특징 추출기)은 동결하고 Classifier만 학습합니다. (위 Layer Freezing 그림 참조)
 
 ### 왜 동결하는가?
 
@@ -130,51 +96,11 @@ for param in model.backbone.classifier.parameters():
 
 큰 가중치 행렬의 변화량(ΔW)을 **저차원(Low-Rank) 행렬의 곱**으로 근사합니다.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    LoRA 수학적 원리                      │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  기존 방식: W' = W + ΔW                                 │
-│            (ΔW는 d×d 크기, 파라미터 많음)               │
-│                                                         │
-│  LoRA 방식: W' = W + B × A                              │
-│            B: d×r, A: r×d (r << d)                      │
-│                                                         │
-│  예시: d=1000, r=8                                      │
-│  - 기존: 1000×1000 = 1,000,000 파라미터                 │
-│  - LoRA: 1000×8 + 8×1000 = 16,000 파라미터 (1.6%!)      │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
+<img src="../images/lora_math.png" alt="LoRA Mathematical Principle" width="500">
 
 ### LoRA 구조
 
-```
-       Input (x)
-          │
-          ▼
-    ┌───────────┐
-    │  W (동결) │──────────────┐
-    └───────────┘              │
-          │                    │
-          ▼                    │
-    ┌───────────┐              │
-    │  A (학습) │ r×d          │
-    └───────────┘              │
-          │                    │
-          ▼                    │
-    ┌───────────┐              │
-    │  B (학습) │ d×r          │
-    └───────────┘              │
-          │                    │
-          ▼                    ▼
-        B×A×x    +           W×x
-          │                    │
-          └────────┬───────────┘
-                   ▼
-             Output (y)
-```
+<img src="../images/lora_structure.png" alt="LoRA Structure" width="400">
 
 ### LoRA 코드
 

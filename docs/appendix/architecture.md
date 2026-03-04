@@ -2,68 +2,18 @@
 
 ## 전체 아키텍처
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         실습 아키텍처 전체 구성                           │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│   ┌──────────────┐                                                     │
-│   │   Local PC   │                                                     │
-│   │  ─────────── │                                                     │
-│   │  Jupyter     │                                                     │
-│   │  Notebook    │                                                     │
-│   └──────┬───────┘                                                     │
-│          │                                                             │
-│          ▼                                                             │
-│   ┌─────────────────────────────────────────────────────────────┐     │
-│   │                        AWS Cloud                             │     │
-│   │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │     │
-│   │  │    Amazon   │    │  SageMaker  │    │  SageMaker  │     │     │
-│   │  │     S3      │◄──►│  Training   │───►│  Endpoint   │     │     │
-│   │  │             │    │    Job      │    │             │     │     │
-│   │  └─────────────┘    └─────────────┘    └──────┬──────┘     │     │
-│   │                                                │            │     │
-│   │                                                ▼            │     │
-│   │                                         ┌───────────┐      │     │
-│   │                                         │  Gradio   │      │     │
-│   │                                         │   Demo    │      │     │
-│   │                                         └───────────┘      │     │
-│   └─────────────────────────────────────────────────────────────┘     │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+<img src="../images/01_overall_architecture.png" alt="Overall Architecture" width="600">
 
 ## 모델 아키텍처
 
 ### EfficientNet-B4 기반 분류기
 
-```
-Input Image (224x224x3)
-         │
-         ▼
-┌─────────────────────┐
-│   EfficientNet-B4   │  ← Frozen (Pretrained weights)
-│     Backbone        │
-│                     │
-│  - Stem Conv        │
-│  - MBConv Blocks    │
-│  - Head Conv        │
-└──────────┬──────────┘
-           │
-           ▼
-    Global Average Pooling
-           │
-           ▼
-┌─────────────────────┐
-│    Classifier       │  ← Trainable (Fine-tuning)
-│  - Dropout(0.4)     │
-│  - Linear(1792→2)   │
-└──────────┬──────────┘
-           │
-           ▼
-    Softmax Output
-    [Real, Fake]
-```
+**모델 흐름:**
+1. **Input Image** (224x224x3)
+2. **EfficientNet-B4 Backbone** (Frozen) - Stem Conv → MBConv Blocks → Head Conv
+3. **Global Average Pooling**
+4. **Classifier** (Trainable) - Dropout(0.4) → Linear(1792→2)
+5. **Softmax Output** - [Real, Fake]
 
 ### 레이어 구성
 
@@ -78,27 +28,14 @@ Input Image (224x224x3)
 
 ### 전처리 흐름
 
-```
-Raw Video
-    │
-    ▼
-Frame Extraction (fps=1)
-    │
-    ▼
-Face Detection (MTCNN)
-    │
-    ▼
-Face Alignment & Crop
-    │
-    ▼
-Resize (224x224)
-    │
-    ▼
-Normalize (ImageNet stats)
-    │
-    ▼
-Training Ready Tensor
-```
+**전처리 순서:**
+1. Raw Video
+2. Frame Extraction (fps=1)
+3. Face Detection (MTCNN)
+4. Face Alignment & Crop
+5. Resize (224x224)
+6. Normalize (ImageNet stats)
+7. Training Ready Tensor
 
 ### 데이터 증강
 
@@ -117,27 +54,15 @@ transforms.Compose([
 
 ### 실시간 추론 흐름
 
-```
-Client Request
-      │
-      ▼
-┌─────────────┐
-│   API GW    │
-│  (Optional) │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────┐
-│    SageMaker    │
-│    Endpoint     │
-│  ─────────────  │
-│  input_fn()     │ ← Base64 decode, Preprocess
-│  predict_fn()   │ ← Model inference
-│  output_fn()    │ ← Format response
-└──────┬──────────┘
-       │
-       ▼
-JSON Response
+<img src="../images/03_deployment_architecture.png" alt="Deployment Architecture" width="500">
+
+**SageMaker Endpoint 함수:**
+- `input_fn()`: Base64 decode, Preprocess
+- `predict_fn()`: Model inference
+- `output_fn()`: Format response
+
+**응답 예시:**
+```json
 {
   "prediction": "FAKE",
   "confidence": 0.95,
