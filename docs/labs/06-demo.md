@@ -14,7 +14,7 @@
 
 ## 배포 아키텍처
 
-![SageMaker Endpoint Deployment](../images/03_deployment_architecture.png)
+<img src="../images/03_deployment_architecture.png" alt="Endpoint Deployment" width="500">
 
 ## Part 1: 최고 성능 모델 배포
 
