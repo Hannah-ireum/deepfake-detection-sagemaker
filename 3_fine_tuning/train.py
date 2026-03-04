@@ -1,6 +1,6 @@
 """
 SageMaker Training Script for Deepfake Detection
-Korean Face Fine-tuning (KoDF)
+Supports: Full Fine-tuning, Layer Freezing, LoRA
 """
 import argparse
 import os
@@ -13,6 +13,7 @@ from torchvision import transforms, datasets
 import timm
 from tqdm import tqdm
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -21,6 +22,15 @@ def parse_args():
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--learning-rate', type=float, default=0.0001)
     parser.add_argument('--model-name', type=str, default='efficientnet_b0')
+
+    # Fine-tuning 기법 선택
+    parser.add_argument('--finetune-method', type=str, default='full',
+                        choices=['full', 'freeze', 'lora'],
+                        help='Fine-tuning method: full, freeze, or lora')
+
+    # LoRA 하이퍼파라미터
+    parser.add_argument('--lora-rank', type=int, default=8,
+                        help='LoRA rank (default: 8)')
 
     # SageMaker 환경변수
     parser.add_argument('--model-dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
@@ -39,6 +49,67 @@ class DeepfakeDetector(nn.Module):
 
     def forward(self, x):
         return self.backbone(x)
+
+
+class LoRALayer(nn.Module):
+    """LoRA (Low-Rank Adaptation) Layer"""
+
+    def __init__(self, original_layer, rank=8):
+        super().__init__()
+        self.original_layer = original_layer
+
+        # 원본 레이어 동결
+        for param in self.original_layer.parameters():
+            param.requires_grad = False
+
+        # LoRA 행렬 추가 (A: down-projection, B: up-projection)
+        in_features = original_layer.in_features
+        out_features = original_layer.out_features
+
+        self.lora_A = nn.Linear(in_features, rank, bias=False)
+        self.lora_B = nn.Linear(rank, out_features, bias=False)
+
+        # 초기화: A는 정규분포, B는 0으로
+        nn.init.normal_(self.lora_A.weight, std=0.02)
+        nn.init.zeros_(self.lora_B.weight)
+
+        self.scaling = 1.0
+
+    def forward(self, x):
+        # 원본 출력 + LoRA 출력
+        original_output = self.original_layer(x)
+        lora_output = self.lora_B(self.lora_A(x)) * self.scaling
+        return original_output + lora_output
+
+
+def apply_lora(model, rank=8):
+    """모델의 Linear 레이어에 LoRA 적용"""
+    # Classifier에만 LoRA 적용 (간단한 버전)
+    if hasattr(model.backbone, 'classifier'):
+        original_classifier = model.backbone.classifier
+        model.backbone.classifier = LoRALayer(original_classifier, rank=rank)
+    return model
+
+
+def apply_layer_freezing(model):
+    """Backbone 동결, Classifier만 학습"""
+    # 먼저 모든 파라미터 동결
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Classifier만 학습 가능하게
+    if hasattr(model.backbone, 'classifier'):
+        for param in model.backbone.classifier.parameters():
+            param.requires_grad = True
+
+    return model
+
+
+def count_parameters(model):
+    """학습 가능한 파라미터 수 계산"""
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in model.parameters())
+    return trainable, total
 
 
 def get_data_loaders(train_dir, val_dir, batch_size):
@@ -120,12 +191,15 @@ def main():
     args = parse_args()
 
     print("=" * 60)
-    print("  딥페이크 탐지 모델 Fine-tuning (한국인 특화)")
+    print("  딥페이크 탐지 모델 Fine-tuning")
     print("=" * 60)
+    print(f"  Method: {args.finetune_method.upper()}")
     print(f"  Model: {args.model_name}")
     print(f"  Epochs: {args.epochs}")
     print(f"  Batch Size: {args.batch_size}")
     print(f"  Learning Rate: {args.learning_rate}")
+    if args.finetune_method == 'lora':
+        print(f"  LoRA Rank: {args.lora_rank}")
     print("=" * 60)
 
     # 디바이스 설정
@@ -139,15 +213,40 @@ def main():
 
     # 모델 생성
     model = DeepfakeDetector(model_name=args.model_name, pretrained=True)
+
+    # Fine-tuning 기법 적용
+    if args.finetune_method == 'freeze':
+        print("\n🔒 Layer Freezing 적용: Backbone 동결")
+        model = apply_layer_freezing(model)
+    elif args.finetune_method == 'lora':
+        print(f"\n🔧 LoRA 적용: rank={args.lora_rank}")
+        model = apply_layer_freezing(model)  # 먼저 동결
+        model = apply_lora(model, rank=args.lora_rank)
+    else:
+        print("\n🔓 Full Fine-tuning: 전체 파라미터 학습")
+
+    # 파라미터 수 출력
+    trainable, total = count_parameters(model)
+    print(f"학습 파라미터: {trainable:,} / {total:,} ({100*trainable/total:.2f}%)")
+
     model = model.to(device)
 
     # 손실 함수 및 옵티마이저
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
+
+    # 학습 가능한 파라미터만 옵티마이저에 전달
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = optim.AdamW(trainable_params, lr=args.learning_rate)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     # 학습 로그
-    history = {'train_loss': [], 'train_acc': [], 'val_loss': [], 'val_acc': []}
+    history = {
+        'method': args.finetune_method,
+        'train_loss': [], 'train_acc': [],
+        'val_loss': [], 'val_acc': [],
+        'trainable_params': trainable,
+        'total_params': total
+    }
     best_val_acc = 0.0
 
     # 학습 루프
@@ -177,12 +276,14 @@ def main():
     torch.save(model.state_dict(), os.path.join(args.model_dir, 'model.pth'))
 
     # 학습 기록 저장
+    history['best_val_acc'] = best_val_acc
     with open(os.path.join(args.model_dir, 'history.json'), 'w') as f:
         json.dump(history, f, indent=2)
 
     print("\n" + "=" * 60)
-    print(f"  Fine-tuning 완료!")
+    print(f"  Fine-tuning 완료! ({args.finetune_method.upper()})")
     print(f"  Best Validation Accuracy: {best_val_acc*100:.2f}%")
+    print(f"  학습 파라미터: {trainable:,} ({100*trainable/total:.2f}%)")
     print("=" * 60)
 
 
