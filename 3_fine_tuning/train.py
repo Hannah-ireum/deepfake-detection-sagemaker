@@ -83,19 +83,51 @@ class LoRALayer(nn.Module):
 
 
 def apply_lora(model, rank=8):
-    """모델의 Linear 레이어에 LoRA 적용"""
-    # Classifier에만 LoRA 적용 (간단한 버전)
+    """모델의 Linear 레이어에 LoRA 적용 (개선된 버전)
+
+    EfficientNet의 SE (Squeeze-and-Excitation) 모듈과
+    Classifier에 LoRA를 적용하여 더 많은 학습 용량 확보
+    """
+    lora_applied_count = 0
+
+    # 1. SE 모듈의 Linear 레이어에 LoRA 적용
+    # EfficientNet의 SE 모듈은 fc1 (reduce), fc2 (expand) 구조
+    for name, module in model.backbone.named_modules():
+        # SE 모듈의 fc1, fc2 레이어 찾기
+        if 'se' in name.lower() and isinstance(module, nn.Linear):
+            # 부모 모듈 찾기
+            parent_name = '.'.join(name.split('.')[:-1])
+            child_name = name.split('.')[-1]
+            parent = model.backbone
+            for part in parent_name.split('.'):
+                if part:
+                    parent = getattr(parent, part)
+
+            # LoRA 적용
+            original_layer = getattr(parent, child_name)
+            setattr(parent, child_name, LoRALayer(original_layer, rank=rank))
+            lora_applied_count += 1
+
+    # 2. Classifier에 LoRA 적용
     if hasattr(model.backbone, 'classifier'):
         original_classifier = model.backbone.classifier
         model.backbone.classifier = LoRALayer(original_classifier, rank=rank)
+        lora_applied_count += 1
+
+    print(f"  LoRA 적용된 레이어 수: {lora_applied_count}")
     return model
 
 
 def merge_lora_weights(model):
-    """LoRA 가중치를 원본 레이어에 병합하여 표준 모델로 변환"""
-    if hasattr(model.backbone, 'classifier') and isinstance(model.backbone.classifier, LoRALayer):
-        lora_layer = model.backbone.classifier
+    """LoRA 가중치를 원본 레이어에 병합하여 표준 모델로 변환 (개선된 버전)
 
+    모델 전체의 모든 LoRA 레이어를 찾아서 병합
+    """
+    merged_count = 0
+
+    # 모든 LoRA 레이어 찾아서 병합
+    def merge_lora_layer(lora_layer):
+        """단일 LoRA 레이어 병합"""
         # LoRA 가중치 병합: W' = W + B @ A
         merged_weight = lora_layer.original_layer.weight.data + \
                        lora_layer.scaling * (lora_layer.lora_B.weight.data @ lora_layer.lora_A.weight.data)
@@ -103,27 +135,77 @@ def merge_lora_weights(model):
         # 새 Linear 레이어 생성
         in_features = lora_layer.original_layer.in_features
         out_features = lora_layer.original_layer.out_features
-        new_classifier = nn.Linear(in_features, out_features)
+        new_layer = nn.Linear(in_features, out_features)
 
         # 병합된 가중치 복사
-        new_classifier.weight.data = merged_weight
+        new_layer.weight.data = merged_weight
         if lora_layer.original_layer.bias is not None:
-            new_classifier.bias.data = lora_layer.original_layer.bias.data
+            new_layer.bias.data = lora_layer.original_layer.bias.data
 
-        # 모델에 적용
-        model.backbone.classifier = new_classifier
-        print("✓ LoRA 가중치가 병합되었습니다.")
+        return new_layer
 
+    # 모든 모듈 순회하면서 LoRA 레이어 병합
+    modules_to_replace = []
+    for name, module in model.backbone.named_modules():
+        if isinstance(module, LoRALayer):
+            modules_to_replace.append(name)
+
+    for name in modules_to_replace:
+        # 부모 모듈 찾기
+        parts = name.split('.')
+        parent = model.backbone
+        for part in parts[:-1]:
+            parent = getattr(parent, part)
+
+        child_name = parts[-1]
+        lora_layer = getattr(parent, child_name)
+        new_layer = merge_lora_layer(lora_layer)
+        setattr(parent, child_name, new_layer)
+        merged_count += 1
+
+    print(f"✓ LoRA 가중치 병합 완료 ({merged_count}개 레이어)")
     return model
 
 
-def apply_layer_freezing(model):
-    """Backbone 동결, Classifier만 학습"""
+def apply_layer_freezing(model, unfreeze_last_blocks=3):
+    """Backbone 부분 동결 (개선된 버전)
+
+    EfficientNet의 마지막 N개 블록 + Classifier를 학습
+    초기 층은 일반적 특징(엣지, 텍스처)을 추출하므로 동결하고,
+    후반 층은 태스크 특화 특징을 학습하도록 해제
+
+    Args:
+        model: 모델
+        unfreeze_last_blocks: 학습할 마지막 블록 수 (기본값: 3)
+    """
     # 먼저 모든 파라미터 동결
     for param in model.parameters():
         param.requires_grad = False
 
-    # Classifier만 학습 가능하게
+    # EfficientNet 블록 구조 분석
+    # timm의 EfficientNet: conv_stem -> bn1 -> blocks (7개 스테이지) -> conv_head -> bn2 -> classifier
+    if hasattr(model.backbone, 'blocks'):
+        total_blocks = len(model.backbone.blocks)
+        unfreeze_from = max(0, total_blocks - unfreeze_last_blocks)
+
+        print(f"  전체 블록: {total_blocks}개, 학습할 블록: {unfreeze_from}~{total_blocks-1}")
+
+        # 마지막 N개 블록 학습 가능하게
+        for i in range(unfreeze_from, total_blocks):
+            for param in model.backbone.blocks[i].parameters():
+                param.requires_grad = True
+
+    # conv_head (마지막 Conv 레이어) 학습 가능하게
+    if hasattr(model.backbone, 'conv_head'):
+        for param in model.backbone.conv_head.parameters():
+            param.requires_grad = True
+
+    # bn2 (마지막 BatchNorm) 학습 가능하게
+    if hasattr(model.backbone, 'bn2'):
+        for param in model.backbone.bn2.parameters():
+            param.requires_grad = True
+
+    # Classifier 학습 가능하게
     if hasattr(model.backbone, 'classifier'):
         for param in model.backbone.classifier.parameters():
             param.requires_grad = True
@@ -245,11 +327,12 @@ def main():
 
     # Fine-tuning 기법 적용
     if args.finetune_method == 'freeze':
-        print("\n🔒 Layer Freezing 적용: Backbone 동결")
-        model = apply_layer_freezing(model)
+        print("\n🔒 Layer Freezing 적용: 마지막 3개 블록 + Classifier 학습")
+        model = apply_layer_freezing(model, unfreeze_last_blocks=3)
     elif args.finetune_method == 'lora':
         print(f"\n🔧 LoRA 적용: rank={args.lora_rank}")
-        model = apply_layer_freezing(model)  # 먼저 동결
+        # LoRA는 전체 동결 후 LoRA 어댑터만 학습
+        model = apply_layer_freezing(model, unfreeze_last_blocks=0)  # 전체 동결
         model = apply_lora(model, rank=args.lora_rank)
     else:
         print("\n🔓 Full Fine-tuning: 전체 파라미터 학습")
@@ -312,7 +395,7 @@ def main():
         if os.path.exists(best_model_path):
             # LoRA 구조로 저장된 best_model 로드
             best_model = DeepfakeDetector(model_name=args.model_name, pretrained=False)
-            best_model = apply_layer_freezing(best_model)
+            best_model = apply_layer_freezing(best_model, unfreeze_last_blocks=0)
             best_model = apply_lora(best_model, rank=args.lora_rank)
             best_model.load_state_dict(torch.load(best_model_path, map_location=device))
             # 병합 후 저장
