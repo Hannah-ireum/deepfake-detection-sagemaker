@@ -1,109 +1,160 @@
-# 5. 성능 비교
+# 5. 성능 비교 (Before vs After × 3가지 기법)
 
 > 노트북: `5_comparison/compare_results.ipynb`
 
 ## 개요
 
-Before와 After 모델의 성능을 시각적으로 비교합니다.
+Before 모델과 **3가지 Fine-tuning 기법**의 성능을 종합 비교합니다.
+각 기법의 장단점을 분석하고 적합한 기법 선택 기준을 제시합니다.
 
 ## 학습 내용
 
-- 성능 메트릭 시각화
-- ROC Curve 비교
-- 실패 케이스 분석
+- **Domain Shift 문제**와 Fine-tuning의 효과
+- 각 **Fine-tuning 기법의 장단점** 분석
+- **적합한 기법 선택 기준** 이해
+
+## 비교 관점
+
+### 1. Before vs After (Domain Adaptation)
+
+```
+Before (FF++ Pretrained)     After (Fine-tuned)
+       서양인 위주        →      한국인 특화
+        ~70%                     ~90%
+```
+
+### 2. Fine-tuning 기법 비교
+
+| 관점 | Full | Freeze | LoRA |
+|------|------|--------|------|
+| 성능 | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
+| 속도 | ⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| 메모리 | ⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| 과적합 위험 | 높음 | 낮음 | 낮음 |
 
 ## 주요 코드
 
-### 메트릭 비교 차트
+### 결과 로드
+
+```python
+# Before 결과
+before_path = PROJECT_ROOT / '2_before_evaluation' / 'before_results.json'
+with open(before_path, 'r') as f:
+    before = json.load(f)
+
+# After 결과 (다중 기법)
+after_path = PROJECT_ROOT / '4_after_evaluation' / 'after_results.json'
+with open(after_path, 'r') as f:
+    after_data = json.load(f)
+
+after_methods = after_data['methods']  # ['full', 'freeze', 'lora']
+after_results = after_data['results']
+```
+
+### 종합 비교 테이블
+
+```python
+print("=" * 80)
+print("  📊 Fine-tuning 효과 종합 비교")
+print("=" * 80)
+
+# Before 결과
+print(f"Before (FF++): {before['accuracy']*100:.1f}%")
+
+# After 결과 (각 기법별)
+for method in after_methods:
+    result = after_results[method]
+    improvement = result['accuracy']*100 - before['accuracy']*100
+    print(f"After ({method.upper()}): {result['accuracy']*100:.1f}% (+{improvement:.1f}%p)")
+
+# 최고 성능 기법
+best_method = max(after_methods, key=lambda m: after_results[m]['accuracy'])
+print(f"\n🏆 최고 성능: {best_method.upper()}")
+```
+
+### 시각화 차트
 
 ```python
 import matplotlib.pyplot as plt
 import numpy as np
 
-metrics = ['Accuracy', 'Precision', 'Recall', 'F1']
-before_scores = [0.70, 0.68, 0.72, 0.70]
-after_scores = [0.90, 0.91, 0.89, 0.90]
+# Accuracy 비교 막대 그래프
+models = ['Before'] + [f'After\n({m.upper()})' for m in after_methods]
+accuracies = [before['accuracy']*100] + [after_results[m]['accuracy']*100 for m in after_methods]
 
-x = np.arange(len(metrics))
-width = 0.35
-
-fig, ax = plt.subplots(figsize=(10, 6))
-bars1 = ax.bar(x - width/2, before_scores, width, label='Before', color='#ff7f7f')
-bars2 = ax.bar(x + width/2, after_scores, width, label='After', color='#7fbf7f')
-
-ax.set_ylabel('Score')
-ax.set_title('Before vs After Fine-tuning')
-ax.set_xticks(x)
-ax.set_xticklabels(metrics)
-ax.legend()
-ax.set_ylim(0, 1)
-
-# 값 표시
-for bar in bars1 + bars2:
-    height = bar.get_height()
-    ax.annotate(f'{height:.0%}',
-                xy=(bar.get_x() + bar.get_width() / 2, height),
-                ha='center', va='bottom')
-
-plt.tight_layout()
+colors = ['#ff6b6b'] + ['#4ecdc4', '#45b7d1', '#96ceb4']
+plt.bar(models, accuracies, color=colors)
+plt.ylabel('Accuracy (%)')
+plt.title('Fine-tuning 기법별 정확도 비교')
+plt.axhline(y=70, color='gray', linestyle='--', label='Before 기준')
+plt.axhline(y=90, color='green', linestyle='--', label='목표')
 plt.show()
 ```
 
-### ROC Curve 비교
+## 성능 비교표
 
-```python
-from sklearn.metrics import roc_curve, auc
+| 모델 | Accuracy | Precision | Recall | F1 | 개선 |
+|------|----------|-----------|--------|----|----|
+| **Before (FF++)** | ~70% | ~68% | ~72% | ~70% | - |
+| **After (FULL)** | ~90% | ~91% | ~89% | ~90% | +20%p |
+| **After (FREEZE)** | ~82% | ~83% | ~81% | ~82% | +12%p |
+| **After (LORA)** | ~87% | ~88% | ~86% | ~87% | +17%p |
 
-# Before ROC
-fpr_before, tpr_before, _ = roc_curve(test_labels, probs_before)
-auc_before = auc(fpr_before, tpr_before)
+## 기법 선택 가이드
 
-# After ROC
-fpr_after, tpr_after, _ = roc_curve(test_labels, probs_after)
-auc_after = auc(fpr_after, tpr_after)
+### 언제 Full Fine-tuning?
 
-plt.figure(figsize=(8, 8))
-plt.plot(fpr_before, tpr_before, 'r-', label=f'Before (AUC={auc_before:.3f})')
-plt.plot(fpr_after, tpr_after, 'g-', label=f'After (AUC={auc_after:.3f})')
-plt.plot([0, 1], [0, 1], 'k--', label='Random')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('ROC Curve Comparison')
-plt.legend()
-plt.grid(True)
-plt.show()
+- 데이터가 충분할 때 (1000+ 샘플)
+- 성능이 가장 중요할 때
+- 과적합 방지 기법 적용 가능할 때 (Dropout, Augmentation)
+
+### 언제 Layer Freezing?
+
+- 데이터가 적을 때 (100~500 샘플)
+- 빠른 실험이 필요할 때
+- 계산 자원이 제한적일 때
+
+### 언제 LoRA?
+
+- 대규모 모델 (LLM, ViT-Large 등)
+- 여러 태스크에 동시 적용 시 (Adapter 저장)
+- 효율성과 성능 모두 중요할 때
+
+## 효율성 분석
+
+| 기법 | 학습 파라미터 | 성능 | 효율성 (성능/파라미터) |
+|------|-------------|------|---------------------|
+| Full | 4,000,000 (100%) | 90% | 낮음 |
+| Freeze | 2,000 (0.05%) | 82% | 매우 높음 |
+| LoRA | 10,000 (0.25%) | 87% | 높음 |
+
+> LoRA는 적은 파라미터로 높은 성능을 달성하여 효율성이 뛰어남
+
+## 결론
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         🎯 종합 결론                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1️⃣ Domain Shift 문제 해결                                  │
+│     - Before (서양인 위주): ~70%                             │
+│     - After (한국인 특화): ~90%                              │
+│     - ✅ Fine-tuning으로 +20%p 향상!                        │
+│                                                             │
+│  2️⃣ Fine-tuning 기법 선택                                   │
+│     - 성능 최우선 → Full Fine-tuning                        │
+│     - 빠른 실험/적은 데이터 → Layer Freezing                │
+│     - 대규모 모델/효율성 → LoRA                             │
+│                                                             │
+│  3️⃣ 이 워크샵에서는...                                      │
+│     - Full Fine-tuning이 가장 높은 성능                     │
+│     - 하지만 LoRA도 효율적으로 좋은 성능 달성                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 개선율 요약
-
-```python
-improvements = {
-    'Accuracy': (0.90 - 0.70) / 0.70 * 100,
-    'AUC': (0.95 - 0.75) / 0.75 * 100,
-    'Precision': (0.91 - 0.68) / 0.68 * 100,
-    'Recall': (0.89 - 0.72) / 0.72 * 100
-}
-
-print("=" * 40)
-print("        성능 개선율 요약")
-print("=" * 40)
-for metric, improvement in improvements.items():
-    print(f"{metric:12}: +{improvement:.1f}%")
-print("=" * 40)
-```
-
-## 시각화 결과
-
-### 성능 비교표
-
-| 메트릭 | Before | After | 개선율 |
-|--------|--------|-------|--------|
-| Accuracy | 70% | 90% | +28.6% |
-| AUC | 0.75 | 0.95 | +26.7% |
-| Precision | 68% | 91% | +33.8% |
-| Recall | 72% | 89% | +23.6% |
-
-### 실패 케이스 분석
+## 실패 케이스 분석
 
 Fine-tuning 후에도 어려운 케이스:
 
@@ -119,19 +170,14 @@ Fine-tuning 후에도 어려운 케이스:
    - 학습 데이터에 적은 케이스
    - 일반화 한계
 
-## 결론
-
-- Fine-tuning으로 **20%p 이상** 성능 향상
-- 한국인 얼굴에 특화된 모델 확보
-- 추가 개선을 위해 더 많은 데이터 필요
-
 ## 체크포인트
 
-- [ ] 메트릭 비교 차트 생성
-- [ ] ROC Curve 비교
-- [ ] 개선율 계산
-- [ ] 실패 케이스 분석
+- [ ] Before vs After 성능 비교 완료
+- [ ] 3가지 기법 비교 차트 생성
+- [ ] 최고 성능 기법 확인
+- [ ] 기법 선택 기준 이해
 
 ## 다음 단계
 
 비교 분석이 완료되면 [6. 데모 배포](06-demo.md)로 이동합니다.
+최고 성능 모델을 배포하고 실시간 데모를 실행합니다.
