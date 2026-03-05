@@ -120,8 +120,70 @@ def create_transfer_learning():
         kodf >> finetuned
 
 
+def create_video_detection_pipeline():
+    """숏폼 영상 딥페이크 탐지 파이프라인"""
+    from diagrams.onprem.compute import Server
+
+    with Diagram(
+        "Short-form Video Deepfake Detection Pipeline",
+        filename=f"{OUTPUT_DIR}/00_video_detection_pipeline",
+        show=False,
+        direction="LR",
+        graph_attr={**graph_attr, "size": "18,6"},
+        node_attr=node_attr,
+        edge_attr=edge_attr,
+    ):
+        user = Users("User\nUpload")
+
+        with Cluster("Video Processing"):
+            video = S3("Short-form\nVideo")
+            frames = Server("Frame\nExtraction\n(3fps)")
+            face = Server("Face\nDetection\n(MTCNN)")
+
+        with Cluster("Fine-tuned Model (This Workshop)"):
+            cnn = SagemakerModel("CNN\nClassifier")
+
+        with Cluster("Result Aggregation"):
+            aggregate = Server("Voting\n(Majority)")
+            result = Users("REAL/FAKE")
+
+        user >> video >> frames >> face >> cnn >> aggregate >> result
+
+
+def create_production_architecture():
+    """프로덕션 아키텍처 (비동기 추론)"""
+    from diagrams.aws.integration import SNS, SQS
+    from diagrams.aws.compute import Lambda
+
+    with Diagram(
+        "Production Architecture (Async Inference)",
+        filename=f"{OUTPUT_DIR}/06_production_architecture",
+        show=False,
+        direction="LR",
+        graph_attr={**graph_attr, "size": "16,7"},
+        node_attr=node_attr,
+        edge_attr=edge_attr,
+    ):
+        user = Users("Game\nPlatform")
+
+        with Cluster("Request"):
+            s3_input = S3("S3 Input\n(Video)")
+
+        with Cluster("SageMaker Async Inference"):
+            queue = SQS("Queue")
+            endpoint = Sagemaker("Async\nEndpoint")
+
+        with Cluster("Response"):
+            s3_output = S3("S3 Output\n(Result)")
+            sns = SNS("SNS\nCallback")
+
+        user >> s3_input >> queue >> endpoint >> s3_output >> sns >> user
+
+
 if __name__ == "__main__":
-    print("Generating architecture diagrams with larger fonts...")
+    print("Generating architecture diagrams...")
+    create_video_detection_pipeline()
+    print("✅ 00_video_detection_pipeline.png")
     create_overall_architecture()
     print("✅ 01_overall_architecture.png")
     create_finetuning_architecture()
@@ -130,4 +192,6 @@ if __name__ == "__main__":
     print("✅ 03_deployment_architecture.png")
     create_transfer_learning()
     print("✅ 05_transfer_learning.png")
+    create_production_architecture()
+    print("✅ 06_production_architecture.png")
     print("\n🎉 Done!")

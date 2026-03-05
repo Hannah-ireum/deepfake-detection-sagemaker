@@ -1,16 +1,20 @@
-# 6. 데모 배포
+# 6. 영상 데모 배포
 
 > 노트북: `6_demo/deploy_and_demo.ipynb`
 
 ## 개요
 
-**최고 성능 Fine-tuned 모델**을 SageMaker Endpoint로 배포하고 Gradio UI로 데모합니다.
+**최고 성능 Fine-tuned 모델**을 SageMaker Endpoint로 배포하고 **숏폼 영상 분석 데모**를 실행합니다.
 
 ## 학습 내용
 
 - SageMaker Endpoint 배포 과정
-- 실시간 추론 아키텍처
-- Gradio 데모 UI 구축
+- **영상 분석 파이프라인** (프레임 추출 → CNN 분석 → 결과 종합)
+- Gradio 영상/이미지 데모 UI 구축
+
+## 영상 딥페이크 탐지 파이프라인
+
+<img src="../images/00_video_detection_pipeline.png" alt="Video Detection Pipeline" width="1000">
 
 ## 배포 아키텍처
 
@@ -94,7 +98,7 @@ def predict_fn(data, model): # 추론 실행
 def output_fn(pred, type):   # 출력 후처리
 ```
 
-## Part 2: Gradio 데모 UI
+## Part 2: 영상 분석 데모 UI
 
 ### Gradio란?
 
@@ -102,65 +106,71 @@ def output_fn(pred, type):   # 출력 후처리
 - Python 코드 몇 줄로 데모 인터페이스 생성
 - `share=True`로 외부 공유 가능한 URL 생성
 
-### 데모 흐름
+### 영상 분석 흐름
 
-1. 사용자가 이미지 업로드
-2. 이미지 → JPEG 바이트로 변환
-3. SageMaker Endpoint 호출
-4. 결과 (REAL/FAKE + 확신도) 표시
-
-### 노트북 내에서 직접 실행
-
-```python
-import gradio as gr
-import boto3
-from io import BytesIO
-
-runtime = boto3.client('sagemaker-runtime')
-
-def detect_deepfake(image):
-    """딥페이크 탐지 함수"""
-    if image is None:
-        return "이미지를 업로드해주세요."
-
-    # 이미지를 바이트로 변환
-    buffered = BytesIO()
-    image.save(buffered, format="JPEG")
-    img_bytes = buffered.getvalue()
-
-    # Endpoint 호출
-    response = runtime.invoke_endpoint(
-        EndpointName=ENDPOINT_NAME,
-        ContentType='application/x-image',
-        Body=img_bytes
-    )
-
-    result = json.loads(response['Body'].read().decode())
-
-    prediction = result.get('prediction', 'Unknown')
-    confidence = result.get('confidence', 0)
-
-    if prediction == 'FAKE':
-        return f"🚨 FAKE 탐지!\n확신도: {confidence:.1%}"
-    else:
-        return f"✅ REAL\n확신도: {confidence:.1%}"
-
-# Gradio 인터페이스
-demo = gr.Interface(
-    fn=detect_deepfake,
-    inputs=gr.Image(type="pil", label="이미지 업로드"),
-    outputs=gr.Textbox(label="탐지 결과"),
-    title="🎭 딥페이크 탐지 데모",
-    description="이미지를 업로드하면 딥페이크 여부를 판별합니다.\n(KoDF Fine-tuned 모델 사용)"
-)
-
-# 실행 (share=True로 공개 URL 생성)
-demo.launch(share=True)
+```
+숏폼 영상 업로드
+      ↓
+프레임 추출 (3fps)
+      ↓
+각 프레임 → Endpoint 호출
+      ↓
+다수결 투표로 최종 판정
+      ↓
+결과 표시 (REAL/FAKE + 상세 정보)
 ```
 
-### 데모 UI 화면
+### 핵심 코드: 프레임 추출
 
-<img src="../images/demo_ui.png" alt="Demo UI" width="1000">
+```python
+import cv2
+
+def extract_frames(video_path, fps=3):
+    """영상에서 프레임 추출 (3fps 기본)"""
+    cap = cv2.VideoCapture(video_path)
+    video_fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_interval = int(video_fps / fps) if video_fps > fps else 1
+
+    frames = []
+    frame_count = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if frame_count % frame_interval == 0:
+            frames.append(frame)
+        frame_count += 1
+
+    cap.release()
+    return frames
+```
+
+### 핵심 코드: 다수결 투표
+
+```python
+def detect_deepfake_video(video):
+    # 프레임 추출
+    frames = extract_frames(video, fps=3)
+
+    # 각 프레임 분석
+    fake_count = 0
+    for frame in frames:
+        prediction, confidence = analyze_single_frame(frame)
+        if prediction == 'FAKE':
+            fake_count += 1
+
+    # 다수결 투표
+    fake_ratio = fake_count / len(frames)
+    final_prediction = "FAKE" if fake_ratio > 0.5 else "REAL"
+
+    return final_prediction
+```
+
+### 데모 UI (탭 구성)
+
+- **🎬 영상 분석**: 숏폼 영상 업로드 → 프레임 분석 → 결과 종합
+- **🖼️ 이미지 분석**: 단일 이미지 분석
 
 ## 비용 관리
 
@@ -189,12 +199,13 @@ print("더 이상 비용이 발생하지 않습니다.")
 - [ ] Endpoint 이름 확인 (타임스탬프 포함)
 - [ ] SageMaker Endpoint 배포 완료
 - [ ] Gradio 데모 실행
+- [ ] **영상 업로드 후 탐지 결과 확인**
 - [ ] 이미지 업로드 후 탐지 결과 확인
 - [ ] **⚠️ Endpoint 삭제 완료**
 
 ## Workshop 완료!
 
-축하합니다! 모든 실습을 완료했습니다.
+축하합니다! **숏폼 딥페이크 영상 판별** 워크샵을 완료했습니다.
 
 ### 배운 내용 정리
 
@@ -205,19 +216,33 @@ print("더 이상 비용이 발생하지 않습니다.")
 | **3. Fine-tuning** | Full, Freeze, LoRA 세 가지 기법 비교 |
 | **4. After 평가** | Fine-tuned 모델 성능 확인 (~90%) |
 | **5. 성능 비교** | 기법별 장단점 분석 |
-| **6. 데모 배포** | SageMaker Endpoint + Gradio UI |
+| **6. 영상 데모** | SageMaker Endpoint + 영상 분석 UI |
+
+### 영상 딥페이크 탐지 파이프라인
+
+```
+숏폼 영상 → 프레임 추출(3fps) → CNN 분석 → 다수결 투표 → REAL/FAKE
+```
 
 ### 핵심 학습 포인트
 
 1. **Domain Shift 문제**: Pretrained 모델은 다른 도메인에서 성능 저하
 2. **Fine-tuning 효과**: 타겟 도메인 데이터로 학습 시 성능 크게 향상
-3. **기법 선택**: 상황에 따라 Full, Freeze, LoRA 중 선택
+3. **프레임 기반 분석**: 숏폼 영상에 효과적이고 빠름
 4. **SageMaker 활용**: Experiments, Model Registry, Spot Instance
+
+### 프로덕션 적용 가이드
+
+| 항목 | 워크샵 (데모) | 프로덕션 |
+|------|-------------|----------|
+| 추론 방식 | 실시간 Endpoint | 비동기 Inference |
+| 스케일링 | 고정 1대 | Auto Scaling, Scale to Zero |
+| 콜백 | 즉시 응답 | SNS 알림 |
 
 ### 다음 단계 (심화)
 
-- 더 많은 한국인 데이터로 학습
-- 다른 모델 아키텍처 실험 (ViT, ConvNeXt)
-- A/B 테스트 및 프로덕션 배포
+- **시공간 모델**: ViViT, TimeSformer로 시간적 패턴 분석
+- **데이터 플라이휠**: 유저 투표 데이터로 모델 재학습 (RLHF)
+- **비동기 추론**: Scale to Zero로 비용 최적화
 
 감사합니다!

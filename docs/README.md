@@ -1,8 +1,23 @@
-# 딥페이크 탐지 모델 Fine-tuning Workshop
+# 숏폼 딥페이크 영상 판별 Workshop
 
 ## Workshop 소개
 
-글로벌 딥페이크 탐지 모델(FaceForensics++)을 **한국인 얼굴에 특화**되도록 Fine-tuning하는 실습입니다.
+**숏폼 영상(틱톡, 릴스, 쇼츠 등)의 딥페이크 여부를 판별하는 AI 모델**을 Fine-tuning하는 실습입니다.
+
+게임 플랫폼, 콘텐츠 검증 서비스 등에서 활용할 수 있는 딥페이크 영상 탐지 모델을 Amazon SageMaker 기반으로 학습하고 배포합니다.
+
+## 영상 딥페이크 탐지 파이프라인
+
+<img src="images/00_video_detection_pipeline.png" alt="Video Detection Pipeline" width="1000">
+
+**숏폼 영상 분석 흐름:**
+1. **영상 업로드**: 사용자가 숏폼 영상(15~60초) 업로드
+2. **프레임 추출**: 3fps로 프레임 샘플링
+3. **얼굴 탐지**: MTCNN으로 각 프레임에서 얼굴 영역 추출
+4. **CNN 분류**: Fine-tuned 모델로 각 프레임 REAL/FAKE 판별
+5. **결과 종합**: 다수결 투표로 최종 영상 판정
+
+> 💡 **이 워크샵에서는** CNN 분류기(4번)를 Fine-tuning합니다. 이것이 영상 탐지의 핵심 엔진입니다.
 
 ## 핵심 목표
 
@@ -35,25 +50,23 @@ Step 4: After 평가 (기법별 성능 비교)
     ↓
 Step 5: Before vs After 종합 비교
     ↓
-Step 6: 최고 성능 모델로 데모 배포
+Step 6: 영상 데모 배포 ★
 ```
 
-## 실습 방법
+## 워크샵 아키텍처
 
-> **모든 노트북은 셀을 순서대로 실행하면 됩니다. (`Shift + Enter`)**
+<img src="images/01_overall_architecture.png" alt="Workshop Architecture" width="1000">
 
-## 주요 기능
+## 프로덕션 적용 가이드
 
-| 기능 | 설명 |
-|------|------|
-| **3가지 Fine-tuning 기법** | Full, Freeze, LoRA 비교 실습 |
-| **SageMaker Experiments** | 하이퍼파라미터, 메트릭 자동 추적 |
-| **Model Registry** | 모델 버전 관리 (85%+ 시 등록) |
-| **Spot Instance** | 학습 비용 ~70% 절감 |
+실제 게임 플랫폼 등에 적용 시, **비동기 추론(Async Inference)** 아키텍처를 권장합니다:
 
-## 아키텍처
+<img src="images/06_production_architecture.png" alt="Production Architecture" width="1000">
 
-<img src="images/01_overall_architecture.png" alt="Workshop Architecture" width="850">
+**비동기 추론의 장점:**
+- 영상 분석(수 초 소요)에 적합
+- Scale to Zero: 트래픽 없을 때 비용 0원
+- SNS 콜백으로 결과 전달
 
 ## 예상 소요 시간
 
@@ -64,10 +77,8 @@ Step 6: 최고 성능 모델로 데모 배포
 | 3 | Fine-tuning (3가지 기법) | 45분 |
 | 4 | After 평가 | 15분 |
 | 5 | 성능 비교 | 10분 |
-| 6 | 데모 배포 | 15분 |
+| 6 | 영상 데모 배포 | 15분 |
 | **총합** | | **~2시간** |
-
-> 💡 시간이 부족하면 노트북 3에서 기법을 1~2개만 선택하여 실행할 수 있습니다.
 
 ## 예상 비용
 
