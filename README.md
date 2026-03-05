@@ -8,9 +8,11 @@
 
 | 구분 | Before | After |
 |------|--------|-------|
-| 모델 | FaceForensics++ Pretrained | KoDF Fine-tuned |
-| 학습 데이터 | 서양인 얼굴 위주 | 한국인 얼굴 추가 |
-| 한국인 영상 정확도 | ~70% | ~90%+ |
+| 모델 | ImageNet Pretrained | Mixed Dataset Fine-tuned |
+| 학습 데이터 | 범용 이미지 | 다양한 인종 + 한국인 혼합 |
+| 딥페이크 탐지 정확도 | ~50% (무작위) | ~85%+ |
+
+> 💡 **왜 혼합 데이터인가?** 한국인 데이터만 사용하면 과적합(Overfitting)되어 다른 인종에서 성능이 떨어집니다. 다양한 인종을 혼합하여 **일반화 성능**을 확보합니다.
 
 ## 영상 딥페이크 탐지 파이프라인
 
@@ -33,7 +35,7 @@
 
 | 단계 | 폴더 | 내용 | 예상 시간 |
 |------|------|------|----------|
-| 1 | `1_data_preparation/` | KoDF 샘플 데이터 준비 & S3 업로드 | 30분 |
+| 1 | `1_data_preparation/` | 혼합 데이터셋 준비 & S3 업로드 | 30분 |
 | 2 | `2_before_evaluation/` | Pretrained 모델 성능 평가 (Before) | 20분 |
 | 3 | `3_fine_tuning/` | SageMaker Fine-tuning (Full, Freeze, LoRA) | 40분 |
 | 4 | `4_after_evaluation/` | Fine-tuned 모델 성능 평가 (After) | 20분 |
@@ -109,7 +111,8 @@ pip install -r requirements.txt
 
 ## 참고 자료
 
-- [KoDF 데이터셋 (AI Hub)](https://www.aihub.or.kr/)
+- [Hugging Face Deepfake Dataset](https://huggingface.co/datasets/Hemg/deepfake-and-real-images) - 190K 다양한 인종 이미지
+- [KoDF 데이터셋 (AI Hub)](https://www.aihub.or.kr/) - 한국인 딥페이크 데이터
 - [FaceForensics++ 벤치마크](https://github.com/ondyari/FaceForensics)
 - [Amazon SageMaker 문서](https://docs.aws.amazon.com/sagemaker/)
 
