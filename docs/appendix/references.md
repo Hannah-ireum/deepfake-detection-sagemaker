@@ -2,10 +2,10 @@
 
 ## 데이터셋
 
-### KoDF (Korean DeepFake)
-- **설명**: 한국인 얼굴 기반 딥페이크 데이터셋
-- **출처**: AI Hub
-- **링크**: https://www.aihub.or.kr/
+### 140k Real and Fake Faces
+- **설명**: StyleGAN으로 생성된 가짜 얼굴과 실제 얼굴 데이터셋
+- **출처**: Kaggle
+- **링크**: https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces
 
 ### FaceForensics++
 - **설명**: 딥페이크 탐지 벤치마크 데이터셋

@@ -18,8 +18,8 @@ Before 모델과 **3가지 Fine-tuning 기법**의 성능을 종합 비교합니
 ### 1. Before vs After (Domain Adaptation)
 
 ```
-Before (FF++ Pretrained)     After (Fine-tuned)
-       서양인 위주        →      한국인 특화
+Before (Pretrained)          After (Fine-tuned)
+    기존 데이터셋         →     타겟 데이터 특화
         ~70%                     ~90%
 ```
 
@@ -133,8 +133,8 @@ plt.show()
 ## 결론
 
 ### 1. Domain Shift 문제 해결
-- **Before** (서양인 위주): ~70%
-- **After** (한국인 특화): ~90%
+- **Before** (Pretrained): ~70%
+- **After** (Fine-tuned): ~90%
 - Fine-tuning으로 **+20%p 향상!**
 
 ### 2. Fine-tuning 기법 선택 가이드

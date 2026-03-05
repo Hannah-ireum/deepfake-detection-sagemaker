@@ -46,7 +46,7 @@
 2. **JupyterLab** 클릭
 3. Space 생성 화면이 나오면:
    - **Name**: `deepfake-workshop`
-   - **Instance**: `ml.t3.medium` (기본값 유지)
+   - **Instance**: `ml.m5.xlarge` (4 vCPU, 16GB 메모리)
 4. **Run Space** 클릭
 5. 상태가 `Running`이 될 때까지 대기 (1-2분)
 6. **Open JupyterLab** 클릭

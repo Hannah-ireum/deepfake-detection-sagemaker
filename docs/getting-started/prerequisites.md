@@ -70,7 +70,7 @@ SageMaker 실행을 위한 IAM Role에 다음 정책이 필요합니다:
 
 | 용도 | 인스턴스 | 비용 (On-Demand) |
 |------|----------|------------------|
-| Studio JupyterLab | ml.t3.medium | ~$0.05/hr |
+| Studio JupyterLab | ml.m5.xlarge | ~$0.23/hr |
 | Training Job | ml.g4dn.xlarge | ~$0.74/hr |
 | Inference Endpoint | ml.g4dn.xlarge | ~$0.74/hr |
 
