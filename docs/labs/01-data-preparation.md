@@ -57,21 +57,24 @@ Bucket: sagemaker-ap-northeast-2-123456789012
 
 ### Step 3: 데이터 다운로드 (셀 3-4)
 
-Workshop 데이터를 다운로드합니다.
+Workshop 데이터를 CloudFront에서 다운로드합니다.
 
 ```python
-DATA_SOURCE = "s3://deepfake-detection-workshop-public/sample-data"
-!aws s3 cp {DATA_SOURCE}/ ./data/ --recursive
+CLOUDFRONT_URL = "https://d291vm7e8ubihi.cloudfront.net"
+DATA_SOURCE = f"{CLOUDFRONT_URL}/sample-data"
+# curl을 사용하여 각 이미지 다운로드
 ```
 
 **예상 출력:**
 ```
-데이터 소스: s3://deepfake-detection-workshop-public/sample-data
+데이터 소스: https://d291vm7e8ubihi.cloudfront.net/sample-data
 데이터 다운로드 중... (약 1-2분 소요)
 
-download: s3://...
+📥 train 데이터 다운로드 중...
+  ✅ train/real: 1000장
+  ✅ train/fake: 1000장
 ...
-✅ 다운로드 완료!
+✅ 다운로드 완료! (총 2800장)
 ```
 
 ### Step 4: 데이터 확인 (셀 5)
@@ -195,8 +198,8 @@ After (Fine-tuning 후):
 ### 데이터 다운로드 실패
 
 ```bash
-# 수동 다운로드 시도
-aws s3 cp s3://deepfake-detection-workshop-public/sample-data/ ./data/ --recursive
+# 수동 다운로드 시도 (curl 사용)
+curl -O https://d291vm7e8ubihi.cloudfront.net/sample-data/train/real/0001.jpg
 ```
 
 ### config.json 저장 오류
