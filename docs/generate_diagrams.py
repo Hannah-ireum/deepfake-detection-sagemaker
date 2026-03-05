@@ -113,7 +113,7 @@ def create_transfer_learning():
     ):
         imagenet = S3("ImageNet\n(1.4M images)")
         pretrained = SagemakerModel("Pretrained\nModel")
-        kodf = S3("Target\nDataset")
+        kodf = S3("KoDF\n(Korean)")
         finetuned = SagemakerModel("Fine-tuned\nModel")
 
         imagenet >> pretrained >> Edge(label="transfer weights") >> finetuned

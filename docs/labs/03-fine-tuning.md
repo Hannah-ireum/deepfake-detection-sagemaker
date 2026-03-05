@@ -4,7 +4,7 @@
 
 ## 개요
 
-Amazon SageMaker를 활용하여 딥페이크 데이터셋으로 모델을 Fine-tuning합니다.
+Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning합니다.
 **3가지 Fine-tuning 기법**을 비교하여 각각의 장단점을 이해합니다.
 
 ## 학습 내용
@@ -23,7 +23,7 @@ Amazon SageMaker를 활용하여 딥페이크 데이터셋으로 모델을 Fine-
 
 <img src="../images/05_transfer_learning.png" alt="Transfer Learning" width="1000">
 
-대규모 데이터셋(ImageNet)에서 학습된 일반적인 특징을 활용하여, 소규모 타겟 데이터셋에 특화된 모델을 효율적으로 학습할 수 있습니다.
+대규모 데이터셋(ImageNet)에서 학습된 일반적인 특징을 활용하여, 소규모 타겟 데이터셋(KoDF)에 특화된 모델을 효율적으로 학습할 수 있습니다.
 
 ### CNN의 계층별 학습 특성
 

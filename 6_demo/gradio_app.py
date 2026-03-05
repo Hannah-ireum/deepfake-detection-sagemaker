@@ -58,8 +58,8 @@ demo = gr.Interface(
     fn=predict_deepfake,
     inputs=gr.Image(label="이미지 업로드"),
     outputs=gr.Textbox(label="판별 결과"),
-    title="🎭 딥페이크 탐지 데모",
-    description="Fine-tuning된 모델입니다. 이미지를 업로드하면 딥페이크 여부를 판별합니다.",
+    title="🎭 딥페이크 탐지 데모 (한국인 특화)",
+    description="KoDF 데이터로 Fine-tuning된 모델입니다. 이미지를 업로드하면 딥페이크 여부를 판별합니다.",
     examples=[]
 )
 
