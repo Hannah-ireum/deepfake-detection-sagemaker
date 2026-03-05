@@ -53,7 +53,7 @@ Step 6: 최고 성능 모델로 데모 배포
 
 ## 아키텍처
 
-<img src="images/01_overall_architecture.png" alt="Workshop Architecture" width="700">
+<img src="images/01_overall_architecture.png" alt="Workshop Architecture" width="850">
 
 ## 예상 소요 시간
 

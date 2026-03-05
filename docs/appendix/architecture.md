@@ -2,7 +2,7 @@
 
 ## 전체 아키텍처
 
-<img src="../images/01_overall_architecture.png" alt="Overall Architecture" width="700">
+<img src="../images/01_overall_architecture.png" alt="Overall Architecture" width="850">
 
 ## 모델 아키텍처
 
@@ -54,7 +54,7 @@ transforms.Compose([
 
 ### 실시간 추론 흐름
 
-<img src="../images/03_deployment_architecture.png" alt="Deployment Architecture" width="650">
+<img src="../images/03_deployment_architecture.png" alt="Deployment Architecture" width="800">
 
 **SageMaker Endpoint 함수:**
 - `input_fn()`: Base64 decode, Preprocess
