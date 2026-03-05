@@ -212,9 +212,9 @@ print("더 이상 비용이 발생하지 않습니다.")
 | 단계 | 내용 |
 |------|------|
 | **1. 데이터 준비** | S3에서 데이터 다운로드, 구조 이해 |
-| **2. Before 평가** | Pretrained 모델의 한계 확인 (~70%) |
+| **2. Before 평가** | ImageNet Pretrained 모델의 한계 확인 (~50%) |
 | **3. Fine-tuning** | Full, Freeze, LoRA 세 가지 기법 비교 |
-| **4. After 평가** | Fine-tuned 모델 성능 확인 (~90%) |
+| **4. After 평가** | Fine-tuned 모델 성능 확인 (~85%) |
 | **5. 성능 비교** | 기법별 장단점 분석 |
 | **6. 영상 데모** | SageMaker Endpoint + 영상 분석 UI |
 
@@ -226,8 +226,8 @@ print("더 이상 비용이 발생하지 않습니다.")
 
 ### 핵심 학습 포인트
 
-1. **Domain Shift 문제**: Pretrained 모델은 다른 도메인에서 성능 저하
-2. **Fine-tuning 효과**: 타겟 도메인 데이터로 학습 시 성능 크게 향상
+1. **태스크 전이의 한계**: 객체 분류 모델은 딥페이크 탐지에 적합하지 않음
+2. **Fine-tuning 효과**: 딥페이크 데이터로 학습 시 성능 크게 향상 (+35%p)
 3. **프레임 기반 분석**: 숏폼 영상에 효과적이고 빠름
 4. **SageMaker 활용**: Experiments, Model Registry, Spot Instance
 

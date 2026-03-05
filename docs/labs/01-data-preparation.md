@@ -165,10 +165,10 @@ data/
 동일한 Test 데이터 사용:
 
 Before (Fine-tuning 전):
-  └─ 사전학습 모델 → Test 데이터 → ~70% 정확도
+  └─ ImageNet 모델 → Test 데이터 → ~50% 정확도 (무작위 수준)
 
 After (Fine-tuning 후):
-  └─ Fine-tuned 모델 → 동일 Test 데이터 → ~90% 정확도
+  └─ Fine-tuned 모델 → 동일 Test 데이터 → ~85% 정확도
 
 비교:
   └─ 동일 데이터에서 성능 향상 확인

@@ -23,9 +23,11 @@
 
 | 구분 | Before | After |
 |------|--------|-------|
-| 모델 | FaceForensics++ Pretrained | KoDF Fine-tuned |
-| 학습 데이터 | 서양인 얼굴 위주 | + 한국인 얼굴 |
-| 한국인 탐지 정확도 | ~70% | **~90%+** |
+| 모델 | ImageNet Pretrained | Deepfake Fine-tuned |
+| 학습 내용 | 객체 분류 (1000개 클래스) | 딥페이크 탐지 (Real/Fake) |
+| 딥페이크 탐지 정확도 | ~50% (무작위 수준) | **~85%+** |
+
+> 💡 **왜 Fine-tuning이 필요한가?** ImageNet으로 학습된 모델은 고양이, 개, 자동차 등 **객체 분류**에 특화되어 있어 딥페이크의 **미세한 합성 흔적**을 탐지하지 못합니다.
 
 ## Fine-tuning 기법 비교 (핵심!)
 

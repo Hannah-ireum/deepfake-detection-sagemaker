@@ -9,18 +9,18 @@ Before 모델과 **3가지 Fine-tuning 기법**의 성능을 종합 비교합니
 
 ## 학습 내용
 
-- **Domain Shift 문제**와 Fine-tuning의 효과
+- **태스크 전이(Task Transfer)**와 Fine-tuning의 효과
 - 각 **Fine-tuning 기법의 장단점** 분석
 - **적합한 기법 선택 기준** 이해
 
 ## 비교 관점
 
-### 1. Before vs After (Domain Adaptation)
+### 1. Before vs After (Task Transfer)
 
 ```
-Before (FF++ Pretrained)     After (Fine-tuned)
-       서양인 위주        →      한국인 특화
-        ~70%                     ~90%
+Before (ImageNet Pretrained)     After (Fine-tuned)
+       객체 분류용           →      딥페이크 탐지용
+        ~50%                        ~85%
 ```
 
 ### 2. Fine-tuning 기법 비교
@@ -59,7 +59,7 @@ print("  📊 Fine-tuning 효과 종합 비교")
 print("=" * 80)
 
 # Before 결과
-print(f"Before (FF++): {before['accuracy']*100:.1f}%")
+print(f"Before (ImageNet): {before['accuracy']*100:.1f}%")
 
 # After 결과 (각 기법별)
 for method in after_methods:
@@ -86,8 +86,8 @@ colors = ['#ff6b6b'] + ['#4ecdc4', '#45b7d1', '#96ceb4']
 plt.bar(models, accuracies, color=colors)
 plt.ylabel('Accuracy (%)')
 plt.title('Fine-tuning 기법별 정확도 비교')
-plt.axhline(y=70, color='gray', linestyle='--', label='Before 기준')
-plt.axhline(y=90, color='green', linestyle='--', label='목표')
+plt.axhline(y=50, color='gray', linestyle='--', label='Before 기준')
+plt.axhline(y=85, color='green', linestyle='--', label='목표')
 plt.show()
 ```
 
@@ -95,10 +95,10 @@ plt.show()
 
 | 모델 | Accuracy | Precision | Recall | F1 | 개선 |
 |------|----------|-----------|--------|----|----|
-| **Before (FF++)** | ~70% | ~68% | ~72% | ~70% | - |
-| **After (FULL)** | ~90% | ~91% | ~89% | ~90% | +20%p |
-| **After (FREEZE)** | ~82% | ~83% | ~81% | ~82% | +12%p |
-| **After (LORA)** | ~87% | ~88% | ~86% | ~87% | +17%p |
+| **Before (ImageNet)** | ~50% | ~50% | ~50% | ~50% | - |
+| **After (FULL)** | ~85% | ~86% | ~84% | ~85% | +35%p |
+| **After (FREEZE)** | ~75% | ~76% | ~74% | ~75% | +25%p |
+| **After (LORA)** | ~82% | ~83% | ~81% | ~82% | +32%p |
 
 ## 기법 선택 가이드
 
@@ -124,18 +124,18 @@ plt.show()
 
 | 기법 | 학습 파라미터 | 성능 | 효율성 (성능/파라미터) |
 |------|-------------|------|---------------------|
-| Full | 4,000,000 (100%) | 90% | 낮음 |
-| Freeze | 2,000 (0.05%) | 82% | 매우 높음 |
-| LoRA | 10,000 (0.25%) | 87% | 높음 |
+| Full | 4,000,000 (100%) | 85% | 낮음 |
+| Freeze | 2,000 (0.05%) | 75% | 매우 높음 |
+| LoRA | 10,000 (0.25%) | 82% | 높음 |
 
 > LoRA는 적은 파라미터로 높은 성능을 달성하여 효율성이 뛰어남
 
 ## 결론
 
-### 1. Domain Shift 문제 해결
-- **Before** (서양인 위주): ~70%
-- **After** (한국인 특화): ~90%
-- Fine-tuning으로 **+20%p 향상!**
+### 1. 태스크 전이 효과
+- **Before** (객체 분류): ~50% (무작위 수준)
+- **After** (딥페이크 탐지): ~85%
+- Fine-tuning으로 **+35%p 향상!**
 
 ### 2. Fine-tuning 기법 선택 가이드
 | 상황 | 추천 기법 |

@@ -4,7 +4,7 @@
 
 ## 개요
 
-Fine-tuning 전, FaceForensics++ 사전 학습 모델의 한국인 얼굴 탐지 성능을 평가합니다.
+Fine-tuning 전, ImageNet 사전 학습 모델의 딥페이크 탐지 성능을 평가합니다.
 
 ## 학습 내용
 
@@ -12,15 +12,17 @@ Fine-tuning 전, FaceForensics++ 사전 학습 모델의 한국인 얼굴 탐지
 - 추론 파이프라인 구성
 - 성능 메트릭 계산
 
-## FaceForensics++ 모델
+## ImageNet Pretrained 모델
 
-FaceForensics++는 대표적인 딥페이크 탐지 벤치마크입니다. 주로 서양인 얼굴 데이터로 학습되었습니다.
+ImageNet은 1,400만장의 이미지로 1,000개 객체를 분류하는 대규모 데이터셋입니다.
+이 데이터로 학습된 모델은 **객체 분류**에 특화되어 있으며, **딥페이크 탐지 학습은 되어 있지 않습니다.**
 
 ### 모델 아키텍처
 
-- **Backbone**: EfficientNet-B4
+- **Backbone**: EfficientNet-B0
 - **Task**: Binary Classification (Real vs Fake)
 - **Input**: 224x224 RGB 이미지
+- **Pretrained**: ImageNet (객체 분류용)
 
 ## 주요 코드
 
@@ -30,12 +32,13 @@ FaceForensics++는 대표적인 딥페이크 탐지 벤치마크입니다. 주�
 import torch
 import timm
 
-# 사전 학습 모델 로드
-model = timm.create_model('efficientnet_b4', pretrained=False, num_classes=2)
-
-# FF++ 가중치 로드
-model.load_state_dict(torch.load('weights/ff_pretrained.pth'))
+# ImageNet Pretrained 모델 로드
+# pretrained=True: ImageNet 가중치 사용 (객체 분류용, 딥페이크 학습 안 됨)
+model = timm.create_model('efficientnet_b0', pretrained=True, num_classes=2)
 model.eval()
+
+print("ImageNet Pretrained 모델 로드 완료")
+print("⚠️ 이 모델은 객체 분류용으로 학습되어 딥페이크 탐지 성능이 낮습니다.")
 ```
 
 ### 추론 함수
@@ -65,7 +68,7 @@ def predict(image_path):
 ### 성능 평가
 
 ```python
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # 테스트 데이터로 평가
 predictions = []
@@ -75,36 +78,39 @@ for img_path in test_images:
 
 # 메트릭 계산
 accuracy = accuracy_score(test_labels, predictions)
-auc = roc_auc_score(test_labels, predictions)
 
 print(f"Before Fine-tuning")
 print(f"Accuracy: {accuracy:.2%}")
-print(f"AUC: {auc:.4f}")
 ```
 
 ## 예상 결과
 
-한국인 얼굴 데이터에서의 Before 성능:
+ImageNet Pretrained 모델의 딥페이크 탐지 성능:
 
-| 메트릭 | 값 |
-|--------|-----|
-| Accuracy | ~70% |
-| AUC | ~0.75 |
-| Precision | ~0.68 |
-| Recall | ~0.72 |
+| 메트릭 | 값 | 설명 |
+|--------|-----|------|
+| Accuracy | ~50% | 무작위 수준 |
+| Precision | ~50% | 무작위 수준 |
+| Recall | ~50% | 무작위 수준 |
+| F1 Score | ~50% | 무작위 수준 |
 
 ## 분석
 
-서양인 얼굴로 학습된 모델이 한국인 얼굴에서 성능이 저하되는 이유:
-- 얼굴 특징(눈, 코, 입 비율)의 차이
-- 피부톤 및 텍스처 차이
-- 메이크업 스타일 차이
+ImageNet Pretrained 모델이 딥페이크 탐지를 못하는 이유:
+
+| 구분 | ImageNet 학습 | 딥페이크 탐지 |
+|------|--------------|--------------|
+| **목적** | 객체 분류 (고양이, 개, 자동차 등) | 합성 여부 판별 (Real vs Fake) |
+| **특징** | 전체적인 형태, 색상, 텍스처 | 미세한 합성 흔적, 아티팩트 |
+| **학습 데이터** | 일반 사물 이미지 | 얼굴 딥페이크 이미지 |
+
+> 💡 **결론**: 딥페이크 탐지를 위해서는 해당 태스크에 맞는 **Fine-tuning**이 필수입니다!
 
 ## 체크포인트
 
-- [ ] 사전 학습 모델 로드 완료
+- [ ] ImageNet Pretrained 모델 로드 완료
 - [ ] 테스트 데이터 추론 완료
-- [ ] 성능 메트릭 기록 완료
+- [ ] 성능 메트릭 기록 완료 (~50%)
 
 ## 다음 단계
 
