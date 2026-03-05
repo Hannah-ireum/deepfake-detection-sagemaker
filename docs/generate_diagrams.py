@@ -1,52 +1,51 @@
 """
-AWS Architecture Diagrams for Deepfake Detection Workshop
-- Smaller, cleaner diagrams
+AWS Architecture Diagrams - Larger fonts
 """
 from diagrams import Diagram, Cluster, Edge
 from diagrams.aws.storage import S3
 from diagrams.aws.ml import Sagemaker, SagemakerModel, SagemakerNotebook
-from diagrams.aws.management import Cloudwatch
 from diagrams.onprem.client import Users
 from diagrams.programming.framework import React
 import os
 
-# Output directory
 OUTPUT_DIR = "./images"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Smaller graph attributes
+# Larger fonts and sizes
 graph_attr = {
-    "fontsize": "14",
+    "fontsize": "20",
     "bgcolor": "white",
-    "pad": "0.3",
-    "dpi": "100",  # Lower DPI for smaller file size
-    "size": "8,6",  # Limit size
+    "pad": "0.5",
+    "dpi": "150",
+    "ranksep": "1.0",
+    "nodesep": "0.8",
 }
 
 node_attr = {
-    "fontsize": "10",
-    "width": "1.2",
-    "height": "1.2",
+    "fontsize": "14",
+    "width": "2",
+    "height": "2",
 }
 
 edge_attr = {
-    "fontsize": "9",
+    "fontsize": "12",
 }
 
 
 def create_overall_architecture():
-    """전체 워크샵 아키텍처 (단순화)"""
+    """전체 워크샵 아키텍처"""
     with Diagram(
         "Workshop Architecture",
         filename=f"{OUTPUT_DIR}/01_overall_architecture",
         show=False,
         direction="LR",
-        graph_attr={**graph_attr, "size": "10,4"},
+        graph_attr={**graph_attr, "size": "14,6"},
         node_attr=node_attr,
+        edge_attr=edge_attr,
     ):
         user = Users("User")
         notebook = SagemakerNotebook("SageMaker\nStudio")
-        s3 = S3("S3")
+        s3 = S3("S3\nBucket")
         training = Sagemaker("Training\nJobs")
         registry = SagemakerModel("Model\nRegistry")
         endpoint = Sagemaker("Endpoint")
@@ -55,23 +54,24 @@ def create_overall_architecture():
 
 
 def create_finetuning_architecture():
-    """Fine-tuning 파이프라인 (단순화된 버전)"""
+    """Fine-tuning 파이프라인"""
     with Diagram(
         "SageMaker Training Pipeline",
         filename=f"{OUTPUT_DIR}/02_finetuning_architecture",
         show=False,
         direction="LR",
-        graph_attr={**graph_attr, "size": "10,5"},
+        graph_attr={**graph_attr, "size": "14,8"},
         node_attr=node_attr,
+        edge_attr=edge_attr,
     ):
-        s3_input = S3("S3\nInput")
+        s3_input = S3("S3 Input\n(Training Data)")
 
         with Cluster("Training Jobs"):
-            full = Sagemaker("Full")
-            freeze = Sagemaker("Freeze")
+            full = Sagemaker("Full\nFine-tuning")
+            freeze = Sagemaker("Layer\nFreezing")
             lora = Sagemaker("LoRA")
 
-        s3_output = S3("S3\nOutput")
+        s3_output = S3("S3 Output\n(Models)")
         registry = SagemakerModel("Model\nRegistry")
 
         s3_input >> full >> s3_output
@@ -81,56 +81,53 @@ def create_finetuning_architecture():
 
 
 def create_deployment_architecture():
-    """배포 아키텍처 (단순화)"""
+    """배포 아키텍처"""
     with Diagram(
         "Endpoint Deployment",
         filename=f"{OUTPUT_DIR}/03_deployment_architecture",
         show=False,
         direction="LR",
-        graph_attr={**graph_attr, "size": "8,3"},
+        graph_attr={**graph_attr, "size": "12,5"},
         node_attr=node_attr,
+        edge_attr=edge_attr,
     ):
         user = Users("User")
-        gradio = React("Gradio UI")
-        endpoint = Sagemaker("Endpoint")
-        model = SagemakerModel("Model")
+        gradio = React("Gradio\nWeb UI")
+        endpoint = Sagemaker("SageMaker\nEndpoint")
+        model = SagemakerModel("PyTorch\nModel")
 
         user >> Edge(label="image") >> gradio >> endpoint >> model
         model >> Edge(label="REAL/FAKE") >> gradio >> user
 
 
 def create_transfer_learning():
-    """Transfer Learning 개념도 (단순화)"""
+    """Transfer Learning 개념도"""
     with Diagram(
         "Transfer Learning",
         filename=f"{OUTPUT_DIR}/05_transfer_learning",
         show=False,
         direction="LR",
-        graph_attr={**graph_attr, "size": "8,3"},
+        graph_attr={**graph_attr, "size": "12,5"},
         node_attr=node_attr,
+        edge_attr=edge_attr,
     ):
-        imagenet = S3("ImageNet\n1.4M")
-        pretrained = SagemakerModel("Pretrained")
-        kodf = S3("KoDF")
-        finetuned = SagemakerModel("Fine-tuned")
+        imagenet = S3("ImageNet\n(1.4M images)")
+        pretrained = SagemakerModel("Pretrained\nModel")
+        kodf = S3("KoDF\n(Korean)")
+        finetuned = SagemakerModel("Fine-tuned\nModel")
 
-        imagenet >> pretrained >> Edge(label="transfer") >> finetuned
+        imagenet >> pretrained >> Edge(label="transfer weights") >> finetuned
         kodf >> finetuned
 
 
 if __name__ == "__main__":
-    print("Generating architecture diagrams...")
-
+    print("Generating architecture diagrams with larger fonts...")
     create_overall_architecture()
     print("✅ 01_overall_architecture.png")
-
     create_finetuning_architecture()
     print("✅ 02_finetuning_architecture.png")
-
     create_deployment_architecture()
     print("✅ 03_deployment_architecture.png")
-
     create_transfer_learning()
     print("✅ 05_transfer_learning.png")
-
-    print("\n🎉 Done! Check ./images/")
+    print("\n🎉 Done!")
