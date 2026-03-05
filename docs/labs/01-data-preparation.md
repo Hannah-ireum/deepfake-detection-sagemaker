@@ -107,7 +107,7 @@ test: Real=200, Fake=200, Total=400
 
 Real과 Fake 이미지 샘플을 시각화합니다.
 
-<img src="../images/sample_comparison.png" alt="Sample Comparison" width="700">
+<img src="../images/sample_comparison.png" alt="Sample Comparison" width="900">
 
 | REAL | FAKE |
 |------|------|
