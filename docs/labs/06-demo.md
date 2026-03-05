@@ -14,7 +14,7 @@
 
 ## 배포 아키텍처
 
-<img src="../images/03_deployment_architecture.png" alt="Endpoint Deployment" width="500">
+<img src="../images/03_deployment_architecture.png" alt="Endpoint Deployment" width="650">
 
 ## Part 1: 최고 성능 모델 배포
 
@@ -160,7 +160,21 @@ demo.launch(share=True)
 
 ### 데모 UI 화면
 
-<img src="../images/demo_ui.png" alt="Demo UI" width="500">
+```
+┌────────────────────────────────────────┐
+│     🎭 딥페이크 탐지 데모              │
+├────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐   │
+│  │              │  │              │   │
+│  │   이미지     │  │   탐지 결과  │   │
+│  │   업로드     │  │              │   │
+│  │              │  │  ✅ REAL     │   │
+│  │              │  │  확신도: 95% │   │
+│  └──────────────┘  └──────────────┘   │
+│                                        │
+│         [Submit]  [Clear]              │
+└────────────────────────────────────────┘
+```
 
 ## 비용 관리
 

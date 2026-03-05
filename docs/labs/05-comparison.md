@@ -132,7 +132,21 @@ plt.show()
 
 ## 결론
 
-<img src="../images/conclusion_summary.png" alt="Workshop Conclusion" width="550">
+### 1. Domain Shift 문제 해결
+- **Before** (서양인 위주): ~70%
+- **After** (한국인 특화): ~90%
+- Fine-tuning으로 **+20%p 향상!**
+
+### 2. Fine-tuning 기법 선택 가이드
+| 상황 | 추천 기법 |
+|------|----------|
+| 성능 최우선 | Full Fine-tuning |
+| 빠른 실험 / 적은 데이터 | Layer Freezing |
+| 대규모 모델 / 효율성 | LoRA |
+
+### 3. 이 워크샵에서는...
+- **Full Fine-tuning**이 가장 높은 성능 달성
+- **LoRA**도 적은 파라미터로 좋은 성능 달성 (효율적)
 
 ## 실패 케이스 분석
 

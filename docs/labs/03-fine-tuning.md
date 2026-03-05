@@ -21,7 +21,7 @@ Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning�
 
 ### 왜 Fine-tuning이 필요한가?
 
-<img src="../images/05_transfer_learning.png" alt="Transfer Learning" width="500">
+<img src="../images/05_transfer_learning.png" alt="Transfer Learning" width="650">
 
 대규모 데이터셋(ImageNet)에서 학습된 일반적인 특징을 활용하여, 소규모 타겟 데이터셋(KoDF)에 특화된 모델을 효율적으로 학습할 수 있습니다.
 
@@ -53,11 +53,11 @@ Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning�
 
 모든 파라미터를 학습합니다. 가장 높은 성능을 낼 수 있지만 과적합 위험이 있습니다.
 
-<img src="../images/layer_comparison.png" alt="Full vs Freeze" width="600">
+<img src="../images/layer_comparison.png" alt="Full vs Freeze" width="700">
 
 ### 과적합(Overfitting) 위험
 
-<img src="../images/overfitting_graph.png" alt="Overfitting Detection" width="450">
+<img src="../images/overfitting_graph.png" alt="Overfitting Detection" width="650">
 
 **과적합 방지 전략:**
 - Data Augmentation (회전, 반전, 색상 변환)
@@ -96,11 +96,27 @@ for param in model.backbone.classifier.parameters():
 
 큰 가중치 행렬의 변화량(ΔW)을 **저차원(Low-Rank) 행렬의 곱**으로 근사합니다.
 
-<img src="../images/lora_math.png" alt="LoRA Mathematical Principle" width="500">
+```
+┌─────────────────────────────────────────────────────────┐
+│                    LoRA 수학적 원리                      │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  기존 방식: W' = W + ΔW                                 │
+│            (ΔW는 d×d 크기, 파라미터 많음)               │
+│                                                         │
+│  LoRA 방식: W' = W + B × A                              │
+│            B: d×r, A: r×d (r << d)                      │
+│                                                         │
+│  예시: d=1000, r=8                                      │
+│  - 기존: 1000×1000 = 1,000,000 파라미터                 │
+│  - LoRA: 1000×8 + 8×1000 = 16,000 파라미터 (1.6%!)      │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
 
 ### LoRA 구조
 
-<img src="../images/lora_structure.png" alt="LoRA Structure" width="400">
+<img src="../images/lora_structure.png" alt="LoRA Structure" width="650">
 
 ### LoRA 코드
 
@@ -145,7 +161,7 @@ def merge_lora_weights(model):
 
 ## 아키텍처
 
-<img src="../images/02_finetuning_architecture.png" alt="SageMaker Training Pipeline" width="500">
+<img src="../images/02_finetuning_architecture.png" alt="SageMaker Training Pipeline" width="650">
 
 ---
 
