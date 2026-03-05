@@ -21,7 +21,7 @@ Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning�
 
 ### 왜 Fine-tuning이 필요한가?
 
-<img src="../images/05_transfer_learning.png" alt="Transfer Learning" width="800">
+<img src="../images/05_transfer_learning.png" alt="Transfer Learning" width="1000">
 
 대규모 데이터셋(ImageNet)에서 학습된 일반적인 특징을 활용하여, 소규모 타겟 데이터셋(KoDF)에 특화된 모델을 효율적으로 학습할 수 있습니다.
 
@@ -53,11 +53,11 @@ Amazon SageMaker를 활용하여 KoDF 데이터셋으로 모델을 Fine-tuning�
 
 모든 파라미터를 학습합니다. 가장 높은 성능을 낼 수 있지만 과적합 위험이 있습니다.
 
-<img src="../images/layer_comparison.png" alt="Full vs Freeze" width="850">
+<img src="../images/layer_comparison.png" alt="Full vs Freeze" width="1000">
 
 ### 과적합(Overfitting) 위험
 
-<img src="../images/overfitting_graph.png" alt="Overfitting Detection" width="800">
+<img src="../images/overfitting_graph.png" alt="Overfitting Detection" width="1000">
 
 **과적합 방지 전략:**
 - Data Augmentation (회전, 반전, 색상 변환)
@@ -109,7 +109,7 @@ for param in model.backbone.classifier.parameters():
 
 ### LoRA 구조
 
-<img src="../images/lora_structure.png" alt="LoRA Structure" width="800">
+<img src="../images/lora_structure.png" alt="LoRA Structure" width="1000">
 
 ### LoRA 코드
 
@@ -154,7 +154,7 @@ def merge_lora_weights(model):
 
 ## 아키텍처
 
-<img src="../images/02_finetuning_architecture.png" alt="SageMaker Training Pipeline" width="800">
+<img src="../images/02_finetuning_architecture.png" alt="SageMaker Training Pipeline" width="1000">
 
 ---
 

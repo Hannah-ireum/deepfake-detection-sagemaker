@@ -11,20 +11,20 @@ import os
 OUTPUT_DIR = "./images"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Larger fonts and sizes
+# Fix: smaller icons, larger fonts
 graph_attr = {
-    "fontsize": "20",
+    "fontsize": "16",
     "bgcolor": "white",
-    "pad": "0.5",
-    "dpi": "150",
-    "ranksep": "1.0",
-    "nodesep": "0.8",
+    "pad": "0.3",
+    "dpi": "120",
+    "ranksep": "0.8",
+    "nodesep": "0.6",
 }
 
 node_attr = {
-    "fontsize": "14",
-    "width": "2",
-    "height": "2",
+    "fontsize": "11",
+    "width": "1.2",
+    "height": "1.2",
 }
 
 edge_attr = {

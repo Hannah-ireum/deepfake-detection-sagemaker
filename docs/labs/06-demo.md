@@ -14,7 +14,7 @@
 
 ## 배포 아키텍처
 
-<img src="../images/03_deployment_architecture.png" alt="Endpoint Deployment" width="800">
+<img src="../images/03_deployment_architecture.png" alt="Endpoint Deployment" width="1000">
 
 ## Part 1: 최고 성능 모델 배포
 
@@ -160,7 +160,7 @@ demo.launch(share=True)
 
 ### 데모 UI 화면
 
-<img src="../images/demo_ui.png" alt="Demo UI" width="700">
+<img src="../images/demo_ui.png" alt="Demo UI" width="1000">
 
 ## 비용 관리
 
